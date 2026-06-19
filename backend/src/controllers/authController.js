@@ -1,0 +1,245 @@
+import bcrypt from "bcrypt";
+import { ethers } from "ethers";
+import { db } from "../db.js";
+import { signToken } from "../config/env.js";
+
+const WALLET_MESSAGE = "Gandaki University Election Wallet Verification";
+
+const VALID_YEARS = ["1st", "2nd", "3rd", "4th"];
+const VALID_GENDERS = ["male", "female", "other"];
+
+export const verifyCode = async (req, res) => {
+  try {
+    const student_id = req.body.student_id || req.body.studentId;
+    const code = req.body.code;
+
+    if (!student_id || !code) {
+      return res.status(400).json({ error: "student_id and code are required" });
+    }
+
+    const result = await db.query(
+      "SELECT id FROM registration_codes WHERE student_id = $1 AND code = $2 AND used = false",
+      [student_id, code]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ valid: false, error: "Invalid or already used registration code" });
+    }
+
+    return res.json({ valid: true });
+  } catch (error) {
+    console.error("verifyCode error:", error);
+    return res.status(500).json({ error: "Code verification failed" });
+  }
+};
+
+export const registerStudent = async (req, res) => {
+  try {
+    const { student_id, code, name, password, year, gender, wallet, signature } = req.body;
+
+    if (!student_id || !code || !name || !password) {
+      return res.status(400).json({ error: "student_id, code, name and password are required" });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+    if (year && !VALID_YEARS.includes(year)) {
+      return res.status(400).json({ error: `year must be one of ${VALID_YEARS.join(", ")}` });
+    }
+    if (gender && !VALID_GENDERS.includes(gender)) {
+      return res.status(400).json({ error: `gender must be one of ${VALID_GENDERS.join(", ")}` });
+    }
+
+    // 1. Verify registration code exists and is unused
+    const codeResult = await db.query(
+      "SELECT id FROM registration_codes WHERE student_id = $1 AND code = $2 AND used = false",
+      [student_id, code]
+    );
+    if (codeResult.rows.length === 0) {
+      return res.status(403).json({ error: "Invalid or already used registration code" });
+    }
+
+    // 2. Verify wallet signature
+    if (!wallet || !signature) {
+      return res.status(400).json({ error: "wallet and signature are required" });
+    }
+    const recovered = ethers.verifyMessage(WALLET_MESSAGE, signature);
+    if (recovered.toLowerCase() !== wallet.toLowerCase()) {
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    // 3. Check if student already exists and is fully registered
+    const existing = await db.query(
+      "SELECT student_id, registered FROM students WHERE student_id = $1",
+      [student_id]
+    );
+    if (existing.rows.length > 0 && existing.rows[0].registered) {
+      return res.status(409).json({ error: "Student ID already registered" });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // 4. Upsert student record
+    let result;
+    if (existing.rows.length > 0) {
+      result = await db.query(
+        `UPDATE students
+         SET name = $2,
+             password_hash = $3,
+             year = $4,
+             gender = $5,
+             wallet_address = $6,
+             wallet_verified = true,
+             registered = true,
+             updated_at = NOW()
+         WHERE student_id = $1
+         RETURNING student_id, name, year, gender, image_cid,
+                   wallet_address, wallet_verified, eligible_to_vote, registered`,
+        [student_id, name, password_hash, year || null, gender || null, wallet]
+      );
+    } else {
+      result = await db.query(
+        `INSERT INTO students (student_id, name, password_hash, year, gender, wallet_address, wallet_verified, registered)
+         VALUES ($1, $2, $3, $4, $5, $6, true, true)
+         RETURNING student_id, name, year, gender, image_cid,
+                   wallet_address, wallet_verified, eligible_to_vote, registered`,
+        [student_id, name, password_hash, year || null, gender || null, wallet]
+      );
+    }
+
+    // 5. Mark code as used
+    await db.query(
+      "UPDATE registration_codes SET used = true, used_at = NOW() WHERE student_id = $1 AND code = $2",
+      [student_id, code]
+    );
+
+    const student = result.rows[0];
+    const token = signToken({ student_id: student.student_id, name: student.name });
+
+    return res.status(201).json({
+      token,
+      student: shape(student),
+    });
+  } catch (error) {
+    console.error("registerStudent error:", error);
+    return res.status(500).json({ error: "Registration failed" });
+  }
+};
+
+export const loginStudent = async (req, res) => {
+  try {
+    const student_id = req.body.student_id || req.body.studentId;
+    const password = req.body.password;
+
+    if (!student_id || !password) {
+      return res.status(400).json({ error: "student_id and password are required" });
+    }
+
+    const result = await db.query(
+      `SELECT student_id, name, password_hash, year, gender, image_cid,
+              wallet_address, wallet_verified, eligible_to_vote, registered
+       FROM students WHERE student_id = $1`,
+      [student_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: "Invalid student ID or password" });
+    }
+
+    const student = result.rows[0];
+
+    if (!student.registered) {
+      return res.status(403).json({ error: "Account not fully registered. Complete registration first." });
+    }
+
+    if (!student.password_hash) {
+      return res.status(401).json({ error: "Account exists but no password set. Contact admin to migrate." });
+    }
+
+    const valid = await bcrypt.compare(password, student.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: "Invalid student ID or password" });
+    }
+
+    const token = signToken({ student_id: student.student_id, name: student.name });
+
+    return res.json({
+      token,
+      student: shape(student),
+    });
+  } catch (error) {
+    console.error("loginStudent error:", error);
+    return res.status(500).json({ error: "Login failed" });
+  }
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const { student_id } = req.user;
+
+    const result = await db.query(
+      `SELECT student_id, name, year, gender, image_cid,
+              wallet_address, wallet_verified, eligible_to_vote, registered
+       FROM students WHERE student_id = $1`,
+      [student_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    return res.json(shape(result.rows[0]));
+  } catch (error) {
+    console.error("getProfile error:", error);
+    return res.status(500).json({ error: "Failed to fetch profile" });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { student_id } = req.user;
+    const { name, year, gender } = req.body;
+
+    if (year && !VALID_YEARS.includes(year)) {
+      return res.status(400).json({ error: `year must be one of ${VALID_YEARS.join(", ")}` });
+    }
+    if (gender && !VALID_GENDERS.includes(gender)) {
+      return res.status(400).json({ error: `gender must be one of ${VALID_GENDERS.join(", ")}` });
+    }
+
+    const result = await db.query(
+      `UPDATE students
+       SET name = COALESCE($1, name),
+           year = COALESCE($2, year),
+           gender = COALESCE($3, gender),
+           updated_at = NOW()
+       WHERE student_id = $4
+       RETURNING student_id, name, year, gender, image_cid,
+                 wallet_address, wallet_verified, eligible_to_vote, registered`,
+      [name || null, year || null, gender || null, student_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Student not found" });
+    }
+    return res.json(shape(result.rows[0]));
+  } catch (error) {
+    console.error("updateProfile error:", error);
+    return res.status(500).json({ error: "Failed to update profile" });
+  }
+};
+
+function shape(row) {
+  return {
+    student_id: row.student_id,
+    name: row.name,
+    year: row.year,
+    gender: row.gender,
+    image_cid: row.image_cid,
+    wallet_address: row.wallet_address,
+    walletLinked: Boolean(row.wallet_address),
+    walletVerified: Boolean(row.wallet_verified),
+    eligibleToVote: Boolean(row.eligible_to_vote),
+    registered: Boolean(row.registered),
+  };
+}
