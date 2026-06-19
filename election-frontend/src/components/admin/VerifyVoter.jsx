@@ -32,13 +32,6 @@ export default function VerifyVoter() {
   const [filter, setFilter] = useState(""); // simple text filter
   const [verifyingId, setVerifyingId] = useState(null); // for per-row spinner
 
-  // Bulk import state
-  const [importText, setImportText] = useState("");
-  const [defaultPassword, setDefaultPassword] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState(null);
-  const [importError, setImportError] = useState("");
-
   const loadStudents = useCallback(async () => {
     setFetching(true);
     try {
@@ -149,64 +142,6 @@ export default function VerifyVoter() {
     }
   }
 
-  function parseImportData(text) {
-    const trimmed = text.trim();
-    if (!trimmed) return [];
-    // Try JSON first
-    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        return Array.isArray(parsed) ? parsed : [parsed];
-      } catch {
-        // fall through to CSV
-      }
-    }
-    // CSV parser
-    const lines = trimmed.split(/\r?\n/).filter((l) => l.trim());
-    const hasHeader = lines[0].toLowerCase().includes("student_id");
-    const dataLines = hasHeader ? lines.slice(1) : lines;
-    return dataLines.map((line) => {
-      const cols = line.split(",").map((c) => c.trim());
-      return {
-        student_id: cols[0],
-        name: cols[1],
-        year: cols[2] || undefined,
-        gender: cols[3] || undefined,
-      };
-    }).filter((r) => r.student_id && r.name);
-  }
-
-  async function handleImport() {
-    setImportError("");
-    setImportResult(null);
-    const records = parseImportData(importText);
-    if (records.length === 0) {
-      setImportError("No valid records found. Check format.");
-      return;
-    }
-    if (defaultPassword.length < 6) {
-      setImportError("Default password must be at least 6 characters.");
-      return;
-    }
-    setImporting(true);
-    try {
-      const response = await fetch(`${API_URL}/api/students/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ students: records, defaultPassword, adminWallet: wallet }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Import failed");
-      setImportResult(data);
-      setImportText("");
-      await loadStudents();
-    } catch (err) {
-      setImportError(err.message || "Import failed");
-    } finally {
-      setImporting(false);
-    }
-  }
-
   async function revokeStudent(studentId) {
     if (!confirm(`Revoke ${studentId}? This removes them from the Merkle tree.`)) return;
     setLoading(true);
@@ -256,57 +191,6 @@ export default function VerifyVoter() {
           <p className="text-2xl font-black text-blue-700">{students.filter(s => !s.wallet_address).length}</p>
           <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">No Wallet</p>
         </div>
-      </div>
-
-      {/* Bulk Import Panel */}
-      <div className="rounded border border-slate-200 bg-slate-50 p-4 space-y-3">
-        <h4 className="font-semibold text-slate-800 text-sm">📥 Bulk Import IT Club Students</h4>
-        <p className="text-xs text-slate-500">
-          Paste CSV or JSON array. CSV columns: <code className="bg-white px-1 rounded border">student_id,name,year,gender</code>.
-          All imported students share the default password below.
-        </p>
-        <textarea
-          value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-          rows={4}
-          placeholder={`21001,John Doe,1st,male
-21002,Jane Smith,2nd,female
-21003,Ram Thapa,3rd,male`}
-          className="w-full rounded border border-slate-300 px-3 py-2 text-xs font-mono focus:border-blue-500 focus:outline-none"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            value={defaultPassword}
-            onChange={(e) => setDefaultPassword(e.target.value)}
-            placeholder="Default password (min 6 chars)"
-            className="flex-1 min-w-[160px] rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-          <button
-            onClick={handleImport}
-            disabled={importing || !importText.trim() || defaultPassword.length < 6}
-            className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-300"
-          >
-            {importing ? "Importing…" : "Import Students"}
-          </button>
-        </div>
-        {importError && <p className="text-xs font-medium text-red-600">{importError}</p>}
-        {importResult && (
-          <div className="text-xs space-y-1">
-            <p className="text-emerald-700 font-medium">✅ Imported {importResult.importedCount} student(s)</p>
-            {importResult.skippedCount > 0 && <p className="text-slate-500">⏭️ Skipped {importResult.skippedCount} duplicate(s)</p>}
-            {importResult.errors.length > 0 && (
-              <div className="text-red-600">
-                <p className="font-medium">⚠️ {importResult.errors.length} error(s):</p>
-                <ul className="list-disc pl-4 max-h-24 overflow-y-auto">
-                  {importResult.errors.map((e, i) => (
-                    <li key={i}>{e.student_id} — {e.reason}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Toolbar */}
