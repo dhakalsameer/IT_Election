@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import { db } from "../db.js";
+import { rebuildMerkleTrees } from "./voterController.js";
 
 const VALID_YEARS = ["1st", "2nd", "3rd", "4th"];
 const VALID_GENDERS = ["male", "female", "other"];
@@ -60,15 +61,38 @@ export const deleteStudent = async (req, res) => {
     if (!student_id) {
       return res.status(400).json({ error: "student_id is required" });
     }
+
+    // Check if the student was eligible to vote before deleting
+    const checkResult = await db.query(
+      `SELECT eligible_to_vote FROM students WHERE student_id = $1`,
+      [student_id]
+    );
+    const wasEligible = checkResult.rows.length > 0 && checkResult.rows[0].eligible_to_vote;
+
+    await db.query("BEGIN");
+    await db.query(`DELETE FROM distribution_log WHERE student_id = $1`, [student_id]);
+    await db.query(
+      `UPDATE candidates SET applied_by = NULL WHERE applied_by = $1`,
+      [student_id]
+    );
     const result = await db.query(
       `DELETE FROM students WHERE student_id = $1 RETURNING student_id, name`,
       [student_id]
     );
     if (result.rows.length === 0) {
+      await db.query("ROLLBACK");
       return res.status(404).json({ error: "Student not found" });
     }
+    await db.query("COMMIT");
+
+    // Update on-chain Merkle trees if the deleted student was an eligible voter
+    if (wasEligible) {
+      await rebuildMerkleTrees();
+    }
+
     res.json({ success: true, deleted: result.rows[0] });
   } catch (error) {
+    await db.query("ROLLBACK").catch(() => {});
     console.error("deleteStudent error:", error);
     res.status(500).json({ error: "Delete failed" });
   }

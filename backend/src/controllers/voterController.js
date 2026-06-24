@@ -6,6 +6,42 @@ import {
   generateIdentityMerkleRoot,
   generateIdentityMerkleProof,
 } from "../services/merkleService.js";
+import { emitEvent } from "../socket.js";
+
+function parseYear(year) {
+  if (year == null) return 0;
+  const n = parseInt(year, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export async function rebuildMerkleTrees() {
+  const allEligibleResult = await db.query(
+    `SELECT wallet_address, name, year, gender FROM students WHERE eligible_to_vote = true AND wallet_address IS NOT NULL`
+  );
+  const allWallets = allEligibleResult.rows.map(r => r.wallet_address);
+  const root = generateMerkleRoot(allWallets);
+
+  const identities = allEligibleResult.rows.map(r => ({
+    address: r.wallet_address,
+    name: r.name,
+    year: parseYear(r.year),
+    isFemale: r.gender?.toLowerCase() === "female",
+  }));
+  const identityRoot = generateIdentityMerkleRoot(identities);
+
+  console.log("Updating Voter Merkle Root to:", root);
+  console.log("Updating Identity Merkle Root to:", identityRoot);
+
+  const tx1 = await electionContractV3.setMerkleRoot(root);
+  await tx1.wait();
+
+  const tx2 = await electionContractV3.setIdentityMerkleRoot(identityRoot);
+  const receipt = await tx2.wait();
+
+  emitEvent("dataChanged", { type: "voters" });
+
+  return receipt.hash;
+}
 
 export const getMe = async (req, res) => {
   try {
@@ -16,7 +52,7 @@ export const getMe = async (req, res) => {
     }
 
     const result = await db.query(
-      `SELECT student_id, name, wallet_address, wallet_verified, eligible_to_vote
+      `SELECT student_id, name, wallet_address, wallet_verified, eligible_to_vote, image_cid
        FROM students
        WHERE LOWER(wallet_address) = LOWER($1)`,
       [wallet]
@@ -56,6 +92,7 @@ export const getMe = async (req, res) => {
     return res.json({
       student_id: student.student_id,
       name: student.name,
+      image_cid: student.image_cid,
       registered: true,
       walletLinked: Boolean(student.wallet_verified),
       verified,
@@ -140,7 +177,7 @@ export const bulkVerifyVoters = async (req, res) => {
       const identities = allEligibleResult.rows.map(r => ({
         address: r.wallet_address,
         name: r.name,
-        year: Number(r.year),
+        year: parseYear(r.year),
         isFemale: r.gender?.toLowerCase() === "female",
       }));
       const identityRoot = generateIdentityMerkleRoot(identities);
@@ -161,6 +198,8 @@ export const bulkVerifyVoters = async (req, res) => {
       const receipt = await tx.wait();
       txHash = receipt.hash;
     }
+
+    emitEvent("dataChanged", { type: "voters" });
 
     return res.json({
       success: true,
@@ -197,9 +236,8 @@ export const revokeVoter = async (req, res) => {
     }
 
     const student = result.rows[0];
-    const tx = await electionContract.revokeVoter(student.wallet_address);
-    const receipt = await tx.wait();
 
+    // Mark as ineligible in DB first
     await db.query(
       `UPDATE students
        SET eligible_to_vote = false
@@ -207,10 +245,13 @@ export const revokeVoter = async (req, res) => {
       [student.student_id]
     );
 
+    // Recalculate Merkle roots without the revoked voter
+    const txHash = await rebuildMerkleTrees();
+
     return res.json({
       success: true,
       student,
-      txHash: receipt.hash,
+      txHash,
     });
   } catch (error) {
     console.error("revokeVoter error:", error);
@@ -253,14 +294,14 @@ export const getIdentityProof = async (req, res) => {
     const identities = allResult.rows.map(r => ({
       address: r.wallet_address,
       name: r.name,
-      year: Number(r.year),
+      year: parseYear(r.year),
       isFemale: r.gender?.toLowerCase() === "female",
     }));
 
     const targetIdentity = {
       address: student.wallet_address,
       name: student.name,
-      year: Number(student.year),
+      year: parseYear(student.year),
       isFemale: student.gender?.toLowerCase() === "female",
     };
 
@@ -270,7 +311,7 @@ export const getIdentityProof = async (req, res) => {
       proof,
       identity: {
         name: student.name,
-        year: Number(student.year),
+        year: parseYear(student.year),
         isFemale: targetIdentity.isFemale,
       },
     });
