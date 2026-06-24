@@ -71,6 +71,7 @@ export const getMe = async (req, res) => {
 
     let hasVoted = false;
     let chainVerified = Boolean(student.eligible_to_vote);
+    let votingPhaseActive = false;
     try {
       // Try V3 first if available
       if (electionContractV3.target) {
@@ -79,9 +80,15 @@ export const getMe = async (req, res) => {
         // We'll trust the DB's eligible_to_vote for UI hints, 
         // but the contract will enforce it via proof.
         chainVerified = student.eligible_to_vote;
+
+        const phase = Number(await electionContractV3.getPhase());
+        const votingEnd = Number(await electionContractV3.votingEnd());
+        const now = Math.floor(Date.now() / 1000);
+        votingPhaseActive = phase === 2 && now < votingEnd;
       } else {
         hasVoted = await electionContract.hasVoted(wallet);
         chainVerified = await electionContract.isVerified(wallet);
+        votingPhaseActive = true; // V1/V2 have no phase check
       }
     } catch (err) {
       console.error("On-chain voter status lookup failed:", err.message);
@@ -96,7 +103,7 @@ export const getMe = async (req, res) => {
       registered: true,
       walletLinked: Boolean(student.wallet_verified),
       verified,
-      canVote: verified && !hasVoted,
+      canVote: verified && !hasVoted && votingPhaseActive,
       hasVoted,
     });
   } catch (error) {
