@@ -75,6 +75,18 @@ export const registerStudent = async (req, res) => {
       return res.status(409).json({ error: "Student ID already registered" });
     }
 
+    // 3a. Ensure wallet is not already linked to a different student
+    if (wallet) {
+      const walletCheck = await db.query(
+        `SELECT student_id FROM students
+         WHERE LOWER(wallet_address) = LOWER($1) AND student_id != $2`,
+        [wallet, student_id]
+      );
+      if (walletCheck.rows.length > 0) {
+        return res.status(409).json({ error: "Wallet already linked to another student" });
+      }
+    }
+
     // Merge incoming values with admin-preset values (admin wins)
     const mergedName = name || existing.rows[0]?.name || null;
     if (!mergedName) {

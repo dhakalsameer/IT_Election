@@ -15,6 +15,18 @@ export const createStudent = async (req, res) => {
       return res.status(400).json({ error: "student_id and name are required" });
     }
 
+    // Ensure wallet is not already linked to a different student
+    if (wallet_address) {
+      const walletCheck = await db.query(
+        `SELECT student_id FROM students
+         WHERE LOWER(wallet_address) = LOWER($1) AND student_id != $2`,
+        [wallet_address, student_id.toUpperCase()]
+      );
+      if (walletCheck.rows.length > 0) {
+        return res.status(409).json({ error: "Wallet already linked to another student" });
+      }
+    }
+
     const result = await db.query(
       `INSERT INTO students (student_id, name, year, gender, wallet_address, image_cid)
        VALUES ($1,$2,$3,$4,$5,$6)
