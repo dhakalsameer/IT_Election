@@ -49,7 +49,7 @@ export const getCandidates = async (req, res) => {
 export const applyCandidate = async (req, res) => {
   try {
     const { position, manifesto } = req.body;
-    const studentId = req.student?.student_id;
+    const studentId = req.user?.student_id;
 
     if (!studentId) {
       return res.status(401).json({ error: "Authentication required" });
