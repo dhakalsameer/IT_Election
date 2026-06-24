@@ -68,6 +68,7 @@ export const getAllStudents = async (req, res) => {
 };
 
 export const deleteStudent = async (req, res) => {
+  let client;
   try {
     const { student_id } = req.params;
     if (!student_id) {
@@ -81,30 +82,35 @@ export const deleteStudent = async (req, res) => {
     );
     const wasEligible = checkResult.rows.length > 0 && checkResult.rows[0].eligible_to_vote;
 
-    await db.query("BEGIN");
-    await db.query(`DELETE FROM distribution_log WHERE student_id = $1`, [student_id]);
-    await db.query(
+    client = await db.connect();
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM distribution_log WHERE student_id = $1`, [student_id]);
+    await client.query(
       `UPDATE candidates SET applied_by = NULL WHERE applied_by = $1`,
       [student_id]
     );
-    const result = await db.query(
+    const result = await client.query(
       `DELETE FROM students WHERE student_id = $1 RETURNING student_id, name`,
       [student_id]
     );
     if (result.rows.length === 0) {
-      await db.query("ROLLBACK");
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Student not found" });
     }
-    await db.query("COMMIT");
+    await client.query("COMMIT");
+    client.release();
+    client = null;
 
-    // Update on-chain Merkle trees if the deleted student was an eligible voter
     if (wasEligible) {
       await rebuildMerkleTrees();
     }
 
     res.json({ success: true, deleted: result.rows[0] });
   } catch (error) {
-    await db.query("ROLLBACK").catch(() => {});
+    if (client) {
+      await client.query("ROLLBACK").catch(() => {});
+      client.release();
+    }
     console.error("deleteStudent error:", error);
     res.status(500).json({ error: "Delete failed" });
   }

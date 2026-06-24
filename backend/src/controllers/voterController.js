@@ -224,7 +224,7 @@ export const revokeVoter = async (req, res) => {
     }
 
     const result = await db.query(
-      `SELECT student_id, wallet_address
+      `SELECT student_id, wallet_address, eligible_to_vote
        FROM students
        WHERE student_id = $1
          AND wallet_address IS NOT NULL`,
@@ -236,8 +236,9 @@ export const revokeVoter = async (req, res) => {
     }
 
     const student = result.rows[0];
+    const previousEligible = student.eligible_to_vote;
 
-    // Mark as ineligible in DB first
+    // Mark as ineligible in DB
     await db.query(
       `UPDATE students
        SET eligible_to_vote = false
@@ -245,14 +246,20 @@ export const revokeVoter = async (req, res) => {
       [student.student_id]
     );
 
-    // Recalculate Merkle roots without the revoked voter
-    const txHash = await rebuildMerkleTrees();
-
-    return res.json({
-      success: true,
-      student,
-      txHash,
-    });
+    try {
+      // Recalculate Merkle roots without the revoked voter
+      const txHash = await rebuildMerkleTrees();
+      return res.json({ success: true, student, txHash });
+    } catch (err) {
+      // Rollback DB change if contract update fails
+      await db.query(
+        `UPDATE students
+         SET eligible_to_vote = $1
+         WHERE student_id = $2`,
+        [previousEligible, student.student_id]
+      );
+      throw err;
+    }
   } catch (error) {
     console.error("revokeVoter error:", error);
     return res.status(500).json({
