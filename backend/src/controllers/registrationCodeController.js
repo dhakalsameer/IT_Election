@@ -79,23 +79,19 @@ export const generateCodes = async (req, res) => {
         [student.student_id, student.name, student.year, student.gender]
       );
 
-      // Skip code generation for already-registered students
-      const regCheck = await db.query(
-        "SELECT registered FROM students WHERE student_id = $1",
-        [student.student_id]
-      );
-      if (regCheck.rows.length > 0 && regCheck.rows[0].registered) {
-        continue;
-      }
-
-      // Check if a code already exists for this student
-      const existing = await db.query(
-        "SELECT code FROM registration_codes WHERE student_id = $1 AND used = false LIMIT 1",
+      // Check if any code was ever created for this student (used or unused).
+      // This prevents generating a new code even if the student row was
+      // deleted and recreated — the old code persists in registration_codes.
+      const existingCode = await db.query(
+        "SELECT code, used FROM registration_codes WHERE student_id = $1 ORDER BY used ASC, id DESC LIMIT 1",
         [student.student_id]
       );
 
-      if (existing.rows.length > 0) {
-        inserted.push({ student_id: student.student_id, code: existing.rows[0].code });
+      if (existingCode.rows.length > 0) {
+        const row = existingCode.rows[0];
+        if (!row.used) {
+          inserted.push({ student_id: student.student_id, code: row.code });
+        }
         continue;
       }
 
