@@ -1,10 +1,11 @@
 import { useState, useEffect, useContext, createContext, useRef, useCallback } from "react";
 import { ethers } from "ethers";
 import { AuthContext } from "../context/AuthContextValue";
-import { API_URL } from "../config";
+import { API_URL, CONTRACT_ADDRESS_V3 } from "../config";
 import { useBalance } from "../hooks/useBalance";
 import BlockExplorerLink from "./ui/BlockExplorerLink";
 import { useToast } from "./ui/Toast";
+import Election3ABI from "../abi/Election3.json";
 
 function getImageUrl(imageCid) {
   if (!imageCid) return null;
@@ -545,7 +546,7 @@ function ProfileCard({ student, onPhotoChange }) {
  *   - No application and not eligible → "wait for whitelist"
  *   - No application and eligible → apply form (President/Secretary/General Member)
  *   - Pending application → "under review"
- *   - Approved + eligible → renders CandidateSelfRegister for on-chain registration
+ *   - Approved + eligible → directs user to the main page registration section
  *   - Rejected → "contact committee"
  */
 function CandidateSection({ student, authFetch }) {
@@ -555,6 +556,30 @@ function CandidateSection({ student, authFetch }) {
   const [applying, setApplying] = useState(false);
   const [selectedPos, setSelectedPos] = useState("");
   const [error, setError] = useState("");
+  const [phase, setPhase] = useState(null);
+  const [regEnd, setRegEnd] = useState(null);
+  const [phaseLoading, setPhaseLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
+        const contract = new ethers.Contract(CONTRACT_ADDRESS_V3, Election3ABI.abi, provider);
+        const p = Number(await contract.getPhase());
+        const re = Number(await contract.registrationEnd());
+        if (mounted) {
+          setPhase(p);
+          setRegEnd(re);
+        }
+      } catch (err) {
+        console.error("Failed to load phase:", err);
+      } finally {
+        if (mounted) setPhaseLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const loadApplication = useCallback(async () => {
     if (!student?.student_id) return;
@@ -659,6 +684,18 @@ function CandidateSection({ student, authFetch }) {
     );
   }
 
+  if (phaseLoading) {
+    return (
+      <div className="rounded-xl border border-app bg-app-surface p-4 animate-pulse space-y-2">
+        <div className="h-3 w-32 bg-app-muted rounded" />
+        <div className="h-8 w-full bg-app-muted rounded" />
+      </div>
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const isRegistrationOpen = phase === 1 && regEnd > now;
+
   if (!student.eligibleToVote) {
     return (
       <div className="rounded-xl border border-app bg-app-surface p-4 space-y-2">
@@ -672,6 +709,30 @@ function CandidateSection({ student, authFetch }) {
           </p>
           <p className="text-[10px] text-app-muted-text mt-1">
             Please wait for the admin to whitelist you in the voter list.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isRegistrationOpen) {
+    const expired = phase === 1 && regEnd <= now;
+    return (
+      <div className="rounded-xl border border-app bg-app-surface p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🎯</span>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-app-muted-text">Candidate Application</h4>
+        </div>
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+          <p className="text-xs text-amber-400">
+            {expired
+              ? "The registration window has expired."
+              : "Registration is not open yet."}
+          </p>
+          <p className="text-[10px] text-app-muted-text mt-1">
+            {expired
+              ? "Contact the admin if you need an extension."
+              : "Wait for the admin to start the registration phase."}
           </p>
         </div>
       </div>
