@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { ethers } from "ethers";
 import { AuthContext } from "../context/AuthContextValue";
 import { getContractV3 } from "../contract";
@@ -32,6 +32,9 @@ export default function CandidateSelfRegister({ student, regEnd }) {
   const [guid, setGuid] = useState(student?.student_id || "");
   const [position, setPosition] = useState(0);
   const [imageCID, setImageCID] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileInputRef = useRef(null);
   const [loadingPhase, setLoadingPhase] = useState(false);
   const [loadingProof, setLoadingProof] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -93,6 +96,39 @@ export default function CandidateSelfRegister({ student, regEnd }) {
       loadIdentityProof();
     }
   }, [phase, wallet]);
+
+  const handleUploadPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!/^image\/(png|jpe?g|webp|gif)$/i.test(file.type)) {
+      return showError("Only PNG/JPEG/WEBP/GIF images are allowed");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return showError("Image must be under 5 MB");
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+
+      const res = await fetch(`${API_URL}/api/candidates/upload-photo`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+
+      setImageCID(data.url);
+      setPhotoPreview(URL.createObjectURL(file));
+    } catch (err) {
+      showError(err.message || "Photo upload failed");
+    } finally {
+      setUploadingPhoto(false);
+      if (e.target) e.target.value = "";
+    }
+  };
 
   const handleRegister = async () => {
     if (!wallet) return showError("Connect your wallet first");
@@ -245,14 +281,53 @@ export default function CandidateSelfRegister({ student, regEnd }) {
         </div>
 
         <div>
-          <label className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text">Image CID</label>
-          <input
-            type="text"
-            value={imageCID}
-            onChange={(e) => setImageCID(e.target.value)}
-            className="input-field mt-1 text-sm"
-            placeholder="ipfs://… or https://…"
-          />
+          <label className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text">Photo</label>
+          <div className="mt-1 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg border border-app bg-app-input text-app-muted-text hover:text-app-heading hover:bg-app-elevated transition-all cursor-pointer disabled:opacity-40"
+            >
+              {uploadingPhoto ? (
+                <>
+                  <span className="h-3 w-3 border-2 border-app-accent/30 border-t-app-accent rounded-full animate-spin" />
+                  Uploading…
+                </>
+              ) : (
+                <>
+                  <span className="text-base">📷</span>
+                  {photoPreview ? "Change photo" : "Upload photo"}
+                </>
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={handleUploadPhoto}
+              className="hidden"
+            />
+            {photoPreview && (
+              <div className="relative shrink-0">
+                <img
+                  src={photoPreview}
+                  alt="Preview"
+                  className="h-10 w-10 rounded-lg object-cover border border-app"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setPhotoPreview(null); setImageCID(""); }}
+                  className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center hover:bg-rose-400 transition-colors cursor-pointer"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
+          {imageCID && !photoPreview && (
+            <p className="text-[10px] text-app-muted-text mt-1 truncate font-mono">{imageCID}</p>
+          )}
         </div>
       </div>
 
