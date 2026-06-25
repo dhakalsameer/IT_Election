@@ -1,6 +1,5 @@
 import { ethers } from "ethers";
 import dotenv from "dotenv";
-import Election1ABI from "../abi/Election1.json" with { type: "json" };
 import Election3ABI from "../abi/Election3.json" with { type: "json" };
 
 dotenv.config();
@@ -12,14 +11,8 @@ export const adminSigner = new ethers.Wallet(
   provider
 );
 
-export const electionContract = new ethers.Contract(
-  process.env.CONTRACT_ADDRESS,
-  Election1ABI.abi,
-  adminSigner
-);
-
 export const electionContractV3 = new ethers.Contract(
-  process.env.CONTRACT_ADDRESS_V3 || process.env.CONTRACT_ADDRESS,
+  process.env.CONTRACT_ADDRESS_V3,
   Election3ABI.abi,
   adminSigner
 );

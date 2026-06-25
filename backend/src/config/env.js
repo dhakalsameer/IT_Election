@@ -28,7 +28,6 @@ export const config = {
   port: process.env.PORT || 5000,
   db: process.env.DATABASE_URL,
   rpc: process.env.RPC_URL,
-  contract: process.env.CONTRACT_ADDRESS,
   contractV3: process.env.CONTRACT_ADDRESS_V3,
   privateKey: process.env.PRIVATE_KEY,
   pinataKey: process.env.PINATA_KEY,

@@ -1,4 +1,4 @@
-import { electionContract, electionContractV3 } from "./electionContract.js";
+import { electionContractV3 } from "./electionContract.js";
 import { db } from "../db.js";
 import { addEvent } from "../services/eventStore.js";
 
@@ -20,10 +20,9 @@ export function startBlockchainSync(io) {
     }
   }
 
-  // V3 Syncing
   if (electionContractV3.target && electionContractV3.target !== "0x0000000000000000000000000000000000000000") {
     electionContractV3.on("VoteCast", async (voter, candidateId, event) => {
-      console.log(`🗳️ [V3] Vote detected from ${voter} for candidate ${candidateId}`);
+      console.log(`🗳️ Vote detected from ${voter} for candidate ${candidateId}`);
       try {
         await db.query(
           `INSERT INTO voters (wallet_address, has_voted, voted_at)
@@ -46,12 +45,12 @@ export function startBlockchainSync(io) {
 
         broadcastResults();
       } catch (err) {
-        console.error("[V3] sync error:", err.message);
+        console.error("Vote sync error:", err.message);
       }
     });
 
     electionContractV3.on("CandidateRegistered", async (id, candidateAddr, name, position, event) => {
-      console.log(`👤 [V3] Candidate registered on-chain: ${name} (ID: ${id}, wallet: ${candidateAddr}, position: ${position})`);
+      console.log(`👤 Candidate registered on-chain: ${name} (ID: ${id}, wallet: ${candidateAddr}, position: ${position})`);
       try {
         const posName = position === 0 ? "President" : position === 1 ? "Secretary" : "General Member";
 
@@ -100,12 +99,12 @@ export function startBlockchainSync(io) {
 
         broadcastResults();
       } catch (err) {
-        console.error("[V3] candidate sync error:", err.message);
+        console.error("Candidate sync error:", err.message);
       }
     });
 
     electionContractV3.on("NewElectionStarted", async (newElectionId, event) => {
-      console.log(`🏁 [V3] New election started — ID: ${newElectionId}, snapshotting previous results`);
+      console.log(`🏁 New election started — ID: ${newElectionId}, snapshotting previous results`);
 
       try {
         const snapshotRes = await db.query(
@@ -131,97 +130,8 @@ export function startBlockchainSync(io) {
           args: { electionId: Number(newElectionId) },
         });
       } catch (err) {
-        console.error("[V3] snapshot error:", err.message);
+        console.error("Snapshot error:", err.message);
       }
     });
   }
-
-  // Listen for votes (structured)
-  electionContract.on("VoteCast", async (voter, presidentId, secretaryId, memberIds) => {
-    console.log(`🗳️ Vote detected from ${voter}`);
-
-    try {
-      // Mark voter as voted
-      await db.query(
-        `INSERT INTO voters (wallet_address, has_voted, voted_at)
-         VALUES ($1, true, NOW())
-         ON CONFLICT (wallet_address)
-         DO UPDATE SET has_voted = true, voted_at = NOW()`,
-        [voter]
-      );
-      
-      // V1 logic usually updates many counts. 
-      // For simplicity in real-time demo, we just trigger a full broadcast
-      broadcastResults();
-      
-      console.log(`✅ Voter ${voter} synced`);
-    } catch (err) {
-      console.error("Voter sync error:", err.message);
-    }
-  });
-
-  // Listen for individual vote updates to keep counts accurate
-  electionContract.on("VoteUpdated", async (candidateId, newVoteCount) => {
-    console.log(`📊 Vote count update: Candidate ${candidateId} -> ${newVoteCount}`);
-    try {
-      await db.query(
-        `UPDATE candidates SET vote_count = $1 WHERE blockchain_id = $2`,
-        [Number(newVoteCount), Number(candidateId)]
-      );
-    } catch (err) {
-      console.error("Candidate vote sync error:", err.message);
-    }
-  });
-
-  electionContract.on("CandidateRegistered", async (id, guid, position) => {
-    console.log(`👤 New candidate registered: ${guid} (ID: ${id}, position: ${position})`);
-  });
-
-  electionContract.on("VotersVerified", async (voters) => {
-    console.log(`✅ ${voters.length} voter(s) verified on-chain`);
-
-    try {
-      await db.query(
-        `UPDATE students
-         SET eligible_to_vote = true
-         WHERE LOWER(wallet_address) = ANY($1::text[])`,
-        [voters.map((wallet) => wallet.toLowerCase())]
-      );
-    } catch (err) {
-      console.error("Voter verification sync error:", err.message);
-    }
-  });
-
-  electionContract.on("VoterRevoked", async (voter) => {
-    console.log(`⛔ Voter revoked on-chain: ${voter}`);
-
-    try {
-      await db.query(
-        `UPDATE students SET eligible_to_vote = false WHERE LOWER(wallet_address) = LOWER($1)`,
-        [voter]
-      );
-    } catch (err) {
-      console.error("Voter revoke sync error:", err.message);
-    }
-  });
-
-  electionContract.on("VerificationLocked", () => {
-    console.log("🔒 Voter verification locked. Election is ready to begin.");
-  });
-
-  electionContract.on("RegistrationStarted", (startTime, endTime) => {
-    console.log(
-      `📝 Registration window: ${new Date(Number(startTime) * 1000).toLocaleString()} → ${new Date(Number(endTime) * 1000).toLocaleString()}`
-    );
-  });
-
-  electionContract.on("ElectionStarted", (startTime, endTime) => {
-    console.log(
-      `🚀 Voting window: ${new Date(Number(startTime) * 1000).toLocaleString()} → ${new Date(Number(endTime) * 1000).toLocaleString()}`
-    );
-  });
-
-  electionContract.on("ElectionFinalized", () => {
-    console.log("🏁 Election finalized and results locked.");
-  });
 }

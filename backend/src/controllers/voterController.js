@@ -1,5 +1,5 @@
 import { db } from "../db.js";
-import { electionContract, electionContractV3 } from "../blockchain/electionContract.js";
+import { electionContractV3 } from "../blockchain/electionContract.js";
 import {
   generateMerkleProof,
   generateMerkleRoot,
@@ -68,33 +68,18 @@ export const getMe = async (req, res) => {
     }
 
     const student = result.rows[0];
-
     let hasVoted = false;
-    let chainVerified = Boolean(student.eligible_to_vote);
     let votingPhaseActive = false;
-    try {
-      // Try V3 first if available
-      if (electionContractV3.target) {
-        hasVoted = await electionContractV3.hasVoted(wallet);
-        // For V3, "verified" means being in the Merkle Tree. 
-        // We'll trust the DB's eligible_to_vote for UI hints, 
-        // but the contract will enforce it via proof.
-        chainVerified = student.eligible_to_vote;
 
-        const phase = Number(await electionContractV3.getPhase());
-        const votingEnd = Number(await electionContractV3.votingEnd());
-        const now = Math.floor(Date.now() / 1000);
-        votingPhaseActive = phase === 2 && now < votingEnd;
-      } else {
-        hasVoted = await electionContract.hasVoted(wallet);
-        chainVerified = await electionContract.isVerified(wallet);
-        votingPhaseActive = true; // V1/V2 have no phase check
-      }
+    try {
+      hasVoted = await electionContractV3.hasVoted(wallet);
+      const phase = Number(await electionContractV3.getPhase());
+      const votingEnd = Number(await electionContractV3.votingEnd());
+      const now = Math.floor(Date.now() / 1000);
+      votingPhaseActive = phase === 2 && now < votingEnd;
     } catch (err) {
       console.error("On-chain voter status lookup failed:", err.message);
     }
-
-    const verified = Boolean(chainVerified);
 
     return res.json({
       student_id: student.student_id,
@@ -102,8 +87,8 @@ export const getMe = async (req, res) => {
       image_cid: student.image_cid,
       registered: true,
       walletLinked: Boolean(student.wallet_verified),
-      verified,
-      canVote: verified && !hasVoted && votingPhaseActive,
+      verified: Boolean(student.eligible_to_vote),
+      canVote: Boolean(student.eligible_to_vote) && !hasVoted && votingPhaseActive,
       hasVoted,
     });
   } catch (error) {
@@ -120,7 +105,6 @@ export const getProof = async (req, res) => {
       return res.status(400).json({ error: "wallet query parameter is required" });
     }
 
-    // 1. Get all eligible voters to reconstruct the tree
     const result = await db.query(
       `SELECT wallet_address
        FROM students
@@ -129,8 +113,6 @@ export const getProof = async (req, res) => {
     );
 
     const wallets = result.rows.map(r => r.wallet_address);
-    
-    // 2. Generate proof for this wallet
     const proof = generateMerkleProof(wallets, wallet);
 
     return res.json({ proof });
@@ -142,7 +124,7 @@ export const getProof = async (req, res) => {
 
 export const bulkVerifyVoters = async (req, res) => {
   try {
-    const { student_ids, version = "v1" } = req.body;
+    const { student_ids } = req.body;
 
     if (!Array.isArray(student_ids) || student_ids.length === 0) {
       return res.status(400).json({ error: "student_ids array is required" });
@@ -163,7 +145,6 @@ export const bulkVerifyVoters = async (req, res) => {
       });
     }
 
-    // Mark as eligible in DB
     await db.query(
       `UPDATE students
        SET eligible_to_vote = true
@@ -171,40 +152,28 @@ export const bulkVerifyVoters = async (req, res) => {
       [result.rows.map((row) => row.student_id)]
     );
 
-    let txHash = null;
+    const allEligibleResult = await db.query(
+      `SELECT wallet_address, name, year, gender FROM students WHERE eligible_to_vote = true AND wallet_address IS NOT NULL`
+    );
+    const allWallets = allEligibleResult.rows.map(r => r.wallet_address);
+    const root = generateMerkleRoot(allWallets);
 
-    if (version === "v3") {
-      // For V3, update both Voter and Identity Merkle Roots on chain
-      const allEligibleResult = await db.query(
-        `SELECT wallet_address, name, year, gender FROM students WHERE eligible_to_vote = true AND wallet_address IS NOT NULL`
-      );
-      const allWallets = allEligibleResult.rows.map(r => r.wallet_address);
-      const root = generateMerkleRoot(allWallets);
+    const identities = allEligibleResult.rows.map(r => ({
+      address: r.wallet_address,
+      name: r.name,
+      year: parseYear(r.year),
+      isFemale: r.gender?.toLowerCase() === "female",
+    }));
+    const identityRoot = generateIdentityMerkleRoot(identities);
 
-      const identities = allEligibleResult.rows.map(r => ({
-        address: r.wallet_address,
-        name: r.name,
-        year: parseYear(r.year),
-        isFemale: r.gender?.toLowerCase() === "female",
-      }));
-      const identityRoot = generateIdentityMerkleRoot(identities);
+    console.log("Updating Voter Merkle Root to:", root);
+    console.log("Updating Identity Merkle Root to:", identityRoot);
 
-      console.log("Updating Voter Merkle Root to:", root);
-      console.log("Updating Identity Merkle Root to:", identityRoot);
+    const tx1 = await electionContractV3.setMerkleRoot(root);
+    await tx1.wait();
 
-      const tx1 = await electionContractV3.setMerkleRoot(root);
-      await tx1.wait();
-
-      const tx2 = await electionContractV3.setIdentityMerkleRoot(identityRoot);
-      const receipt = await tx2.wait();
-      txHash = receipt.hash;
-    } else {
-      // V1 logic
-      const walletsToVerify = result.rows.map((row) => row.wallet_address);
-      const tx = await electionContract.verifyVoters(walletsToVerify);
-      const receipt = await tx.wait();
-      txHash = receipt.hash;
-    }
+    const tx2 = await electionContractV3.setIdentityMerkleRoot(identityRoot);
+    const receipt = await tx2.wait();
 
     emitEvent("dataChanged", { type: "voters" });
 
@@ -212,7 +181,7 @@ export const bulkVerifyVoters = async (req, res) => {
       success: true,
       verifiedCount: result.rows.length,
       students: result.rows,
-      txHash,
+      txHash: receipt.hash,
     });
   } catch (error) {
     console.error("bulkVerifyVoters error:", error);
@@ -245,7 +214,6 @@ export const revokeVoter = async (req, res) => {
     const student = result.rows[0];
     const previousEligible = student.eligible_to_vote;
 
-    // Mark as ineligible in DB
     await db.query(
       `UPDATE students
        SET eligible_to_vote = false
@@ -254,11 +222,9 @@ export const revokeVoter = async (req, res) => {
     );
 
     try {
-      // Recalculate Merkle roots without the revoked voter
       const txHash = await rebuildMerkleTrees();
       return res.json({ success: true, student, txHash });
     } catch (err) {
-      // Rollback DB change if contract update fails
       await db.query(
         `UPDATE students
          SET eligible_to_vote = $1
@@ -283,7 +249,6 @@ export const getIdentityProof = async (req, res) => {
       return res.status(400).json({ error: "wallet query parameter is required" });
     }
 
-    // Fetch this student's identity and all eligible voters
     const studentResult = await db.query(
       `SELECT wallet_address, name, year, gender
        FROM students

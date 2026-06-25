@@ -24,7 +24,7 @@ async function startupChecks() {
   const required = [
     ["DATABASE_URL", config.db],
     ["RPC_URL", config.rpc],
-    ["CONTRACT_ADDRESS", config.contract],
+    ["CONTRACT_ADDRESS_V3", config.contractV3],
     ["PRIVATE_KEY", config.privateKey],
   ];
   for (const [name, value] of required) {
