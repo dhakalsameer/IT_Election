@@ -165,10 +165,10 @@ export default function ElectionControl() {
       if (hc === 0) { setHistory([]); return; }
       const items = [];
       for (let i = 0; i < hc; i++) {
-        const r = await contract.electionHistory(i);
-        const pres = r.presidentWinnerId > 0 ? await contract.getCandidate(r.presidentWinnerId) : null;
-        const sec = r.secretaryWinnerId > 0 ? await contract.getCandidate(r.secretaryWinnerId) : null;
-        const gmIds = r.generalMemberWinnerIds || [];
+        const r = await contract.getElectionResult(i);
+        const pres = Number(r.presidentWinnerId) > 0 ? await contract.getCandidate(Number(r.presidentWinnerId)) : null;
+        const sec = Number(r.secretaryWinnerId) > 0 ? await contract.getCandidate(Number(r.secretaryWinnerId)) : null;
+        const gmIds = Array.isArray(r.generalMemberWinnerIds) ? r.generalMemberWinnerIds.map(Number) : [];
         const gmNames = (await Promise.all(
           gmIds.map(id => id > 0 ? contract.getCandidate(id) : null)
         )).filter(c => c !== null).map(c => c.name);
@@ -178,7 +178,7 @@ export default function ElectionControl() {
           totalCandidates: Number(r.totalCandidates),
           pres: pres?.name || "—",
           sec: sec?.name || "—",
-          mem: gmNames.join(", ") || "—",
+          gmNames: gmNames.length > 0 ? gmNames : null,
         });
       }
       setHistory(items);
@@ -368,15 +368,23 @@ export default function ElectionControl() {
                 <div className="grid grid-cols-3 gap-2 pt-1">
                   <div className="rounded bg-emerald-500/10 px-2 py-1.5 text-center">
                     <p className="text-[10px] uppercase text-emerald-400 font-bold">President</p>
-                    <p className="font-semibold text-app-heading truncate">{r.pres}</p>
+                    <p className="font-semibold text-app-heading">{r.pres}</p>
                   </div>
                   <div className="rounded bg-sky-500/10 px-2 py-1.5 text-center">
                     <p className="text-[10px] uppercase text-sky-400 font-bold">Secretary</p>
-                    <p className="font-semibold text-app-heading truncate">{r.sec}</p>
+                    <p className="font-semibold text-app-heading">{r.sec}</p>
                   </div>
                   <div className="rounded bg-amber-500/10 px-2 py-1.5 text-center">
                     <p className="text-[10px] uppercase text-amber-400 font-bold">General Member</p>
-                    <p className="font-semibold text-app-heading truncate">{r.mem}</p>
+                    {r.gmNames ? (
+                      <ul className="space-y-0.5">
+                        {r.gmNames.map((name, idx) => (
+                          <li key={idx} className="font-semibold text-app-heading text-[11px]">{name}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="font-semibold text-app-heading">—</p>
+                    )}
                   </div>
                 </div>
               </div>

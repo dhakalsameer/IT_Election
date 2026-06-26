@@ -440,6 +440,135 @@ contract Election3Test is Test {
     }
 
     // =========================
+    // CAST VOTE (MULTI-SELECT BALLOT)
+    // =========================
+
+    function testCastVoteFullBallot() public {
+        // Simplified setup with just the 4 students we already have
+        // We'll test basic castVote functionality
+
+        // Build voter tree (single leaf for this test — student1)
+        bytes32 vRoot = keccak256(abi.encodePacked(student1));
+        election.setMerkleRoot(vRoot);
+
+        uint256 regEnd = block.timestamp + 1 hours;
+        uint256 voteEnd = regEnd + 2 hours;
+        election.startRegistration(regEnd);
+
+    vm.prank(student1);
+    election.registerCandidate("ST-001", "Alice", 4, true, "",
+        Election3.Position.President, new bytes32[](0));
+
+    vm.warp(regEnd + 1);
+        election.startVoting(voteEnd);
+        vm.warp(regEnd + 2);
+
+        // Cast vote: President only (abstain others)
+        uint256[] memory gmIds = new uint256[](0);
+        vm.prank(student1);
+        election.castVote(1, 0, gmIds, new bytes32[](0));
+
+        Election3.Candidate memory c = election.getCandidate(1);
+        assertEq(c.voteCount, 1);
+        assertTrue(election.hasVoted(student1));
+    }
+
+    function testCastVoteRejectsDuplicate() public {
+        bytes32 vRoot = keccak256(abi.encodePacked(student1));
+        election.setMerkleRoot(vRoot);
+
+        uint256 regEnd = block.timestamp + 1 hours;
+        election.startRegistration(regEnd);
+
+        vm.prank(student1);
+        election.registerCandidate("ST-001", "Alice", 4, true, "",
+            Election3.Position.President, new bytes32[](0));
+
+        vm.warp(regEnd + 1);
+        election.startVoting(block.timestamp + 2 hours);
+        vm.warp(regEnd + 2);
+
+        uint256[] memory gmIds = new uint256[](0);
+        vm.prank(student1);
+        election.castVote(1, 0, gmIds, new bytes32[](0));
+
+        vm.prank(student1);
+        vm.expectRevert("Already voted");
+        election.castVote(1, 0, gmIds, new bytes32[](0));
+    }
+
+    function testCastVoteRejectsInvalidPresident() public {
+        bytes32 vRoot = keccak256(abi.encodePacked(student1));
+        election.setMerkleRoot(vRoot);
+
+        uint256 regEnd = block.timestamp + 1 hours;
+        election.startRegistration(regEnd);
+
+        vm.prank(student1);
+        election.registerCandidate("ST-001", "Alice", 4, true, "",
+            Election3.Position.President, new bytes32[](0));
+
+        vm.warp(regEnd + 1);
+        election.startVoting(block.timestamp + 2 hours);
+        vm.warp(regEnd + 2);
+
+        uint256[] memory gmIds = new uint256[](0);
+        vm.prank(student1);
+        vm.expectRevert("Invalid president");
+        election.castVote(99, 0, gmIds, new bytes32[](0));
+    }
+
+    function testCastVoteRejectsTooManyGMs() public {
+        bytes32 vRoot = keccak256(abi.encodePacked(student1));
+        election.setMerkleRoot(vRoot);
+
+        uint256 regEnd = block.timestamp + 1 hours;
+        election.startRegistration(regEnd);
+
+        // President + 6 GMs (6 > 5)
+        vm.prank(student1);
+        election.registerCandidate("ST-001", "Alice", 4, true, "",
+            Election3.Position.President, new bytes32[](0));
+
+        vm.warp(regEnd + 1);
+        election.startVoting(block.timestamp + 2 hours);
+        vm.warp(regEnd + 2);
+
+        uint256[] memory gmIds = new uint256[](6);
+        vm.prank(student1);
+        vm.expectRevert("Too many GM votes");
+        election.castVote(0, 0, gmIds, new bytes32[](0));
+    }
+
+    function testCastVoteRequiresAtLeastOneSelection() public {
+        bytes32 vRoot = keccak256(abi.encodePacked(student1));
+        election.setMerkleRoot(vRoot);
+
+        uint256 regEnd = block.timestamp + 1 hours;
+        election.startRegistration(regEnd);
+
+        vm.prank(student1);
+        election.registerCandidate("ST-001", "Alice", 4, true, "",
+            Election3.Position.President, new bytes32[](0));
+
+        vm.warp(regEnd + 1);
+        election.startVoting(block.timestamp + 2 hours);
+        vm.warp(regEnd + 2);
+
+        uint256[] memory gmIds = new uint256[](0);
+        vm.prank(student1);
+        vm.expectRevert("No candidates selected");
+        election.castVote(0, 0, gmIds, new bytes32[](0));
+    }
+
+    function testCastVoteOutsideVotingPhase() public {
+        uint256[] memory gmIds = new uint256[](0);
+        vm.prank(student1);
+        vm.expectRevert("Wrong phase");
+        election.castVote(1, 0, gmIds, new bytes32[](0));
+    }
+
+    // =========================
     // WINNER SELECTION EDGE CASES
     // =========================
 

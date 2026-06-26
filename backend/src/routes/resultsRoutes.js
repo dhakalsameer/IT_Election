@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
 router.get("/history", async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT election_number, candidate_name, candidate_position, vote_count, snapshot_at
+      `SELECT election_number, candidate_name, candidate_position, candidate_year, candidate_gender, candidate_photo, vote_count, snapshot_at
        FROM election_history
        ORDER BY election_number DESC, candidate_position, vote_count DESC`
     );
@@ -36,6 +36,9 @@ router.get("/history", async (req, res) => {
         name: row.candidate_name,
         position: row.candidate_position,
         vote_count: row.vote_count,
+        year: row.candidate_year,
+        gender: row.candidate_gender,
+        photo: row.candidate_photo,
       });
     }
 

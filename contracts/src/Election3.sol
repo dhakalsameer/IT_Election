@@ -83,6 +83,7 @@ contract Election3 {
         string imageCID
     );
     event VoteCast(address indexed voter, uint256 candidateId);
+    event BallotCast(address indexed voter, uint256 presId, uint256 secId, uint256[] gmIds);
     event PhaseChanged(Phase newPhase);
     event MerkleRootUpdated(bytes32 newRoot);
     event IdentityMerkleRootUpdated(bytes32 newRoot);
@@ -241,6 +242,75 @@ contract Election3 {
         candidates[_candidateId].voteCount++;
 
         emit VoteCast(msg.sender, _candidateId);
+    }
+
+    // =========================
+    // 📌 VOTING (MULTI-SELECT BALLOT)
+    // =========================
+
+    /// @notice Vote for President (0 = abstain), Secretary (0 = abstain),
+    ///         and up to 5 General Members (at least 2 female).
+    /// @dev Single transaction replaces up to 7 separate vote() calls.
+    function castVote(
+        uint256 _presidentId,
+        uint256 _secretaryId,
+        uint256[] calldata _gmIds,
+        bytes32[] calldata _proof
+    ) external inPhase(Phase.Voting) {
+        require(block.timestamp <= votingEnd, "Voting ended");
+        require(
+            votedInElection[msg.sender] != currentElectionId,
+            "Already voted"
+        );
+
+        // 🔐 Verify voter using Merkle Proof
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        require(
+            MerkleProof.verify(_proof, voterMerkleRoot, leaf),
+            "Not eligible voter"
+        );
+
+        uint256 votedCount;
+
+        // President (optional)
+        if (_presidentId > 0) {
+            Candidate storage pres = candidates[_presidentId];
+            require(pres.exists && pres.position == Position.President, "Invalid president");
+            pres.voteCount++;
+            emit VoteCast(msg.sender, _presidentId);
+            votedCount++;
+        }
+
+        // Secretary (optional)
+        if (_secretaryId > 0) {
+            Candidate storage sec = candidates[_secretaryId];
+            require(sec.exists && sec.position == Position.Secretary, "Invalid secretary");
+            sec.voteCount++;
+            emit VoteCast(msg.sender, _secretaryId);
+            votedCount++;
+        }
+
+        // General Members (up to 5, at least 2 female)
+        require(_gmIds.length <= GENERAL_MEMBERS_ELECTED, "Too many GM votes");
+        uint256 femaleCount;
+        for (uint256 i = 0; i < _gmIds.length; i++) {
+            uint256 gid = _gmIds[i];
+            require(gid > 0, "Invalid GM ID");
+            Candidate storage gm = candidates[gid];
+            require(gm.exists && gm.position == Position.GeneralMember, "Invalid GM");
+            if (gm.isFemale) femaleCount++;
+            gm.voteCount++;
+            emit VoteCast(msg.sender, gid);
+            votedCount++;
+        }
+        if (_gmIds.length > 0) {
+            require(femaleCount >= 2, "Need at least 2 female GM votes");
+        }
+        require(votedCount > 0, "No candidates selected");
+
+        votedInElection[msg.sender] = currentElectionId;
+
+        emit BallotCast(msg.sender, _presidentId, _secretaryId, _gmIds);
     }
 
     // =========================

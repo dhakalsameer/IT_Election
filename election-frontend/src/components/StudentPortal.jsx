@@ -5,7 +5,6 @@ import { API_URL, CONTRACT_ADDRESS_V3 } from "../config";
 import { useBalance } from "../hooks/useBalance";
 import BlockExplorerLink from "./ui/BlockExplorerLink";
 import { useToast } from "./ui/Toast";
-import Election3ABI from "../abi/Election3.json";
 
 function getImageUrl(imageCid) {
   if (!imageCid) return null;
@@ -24,6 +23,7 @@ function usePortal() {
 }
 
 function PortalAuthProvider({ children }) {
+  const { wallet } = useContext(AuthContext);
   const [token, setToken] = useState(() => localStorage.getItem("portal_token") || null);
   const [student, setStudent] = useState(() => {
     const raw = localStorage.getItem("portal_student");
@@ -65,6 +65,14 @@ function PortalAuthProvider({ children }) {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!student?.wallet_address) return;
+    if (!wallet) return;
+    if (student.wallet_address.toLowerCase() !== wallet.toLowerCase()) {
+      logout();
+    }
+  }, [wallet, student]);
+
   const authFetch = async (path, opts = {}) => {
     const headers = { ...(opts.headers || {}) };
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -86,6 +94,7 @@ function PortalAuthProvider({ children }) {
 
 function LoginView({ onRegister }) {
   const { save } = usePortal();
+  const { wallet } = useContext(AuthContext);
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
@@ -103,7 +112,13 @@ function LoginView({ onRegister }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
-      save(data.token, data.student);
+
+      const s = data.student;
+      if (s.wallet_address && wallet && s.wallet_address.toLowerCase() !== wallet.toLowerCase()) {
+        throw new Error("Connected wallet does not match the wallet registered to this student ID. Please connect the correct wallet.");
+      }
+
+      save(data.token, s);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -558,13 +573,11 @@ function CandidateSection({ student }) {
     let mounted = true;
     (async () => {
       try {
-        const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
-        const contract = new ethers.Contract(CONTRACT_ADDRESS_V3, Election3ABI.abi, provider);
-        const p = Number(await contract.getPhase());
-        const re = Number(await contract.registrationEnd());
-        if (mounted) {
-          setPhase(p);
-          setRegEnd(re);
+        const res = await fetch(`${API_URL}/api/contract/phase`);
+        const data = await res.json();
+        if (mounted && res.ok) {
+          setPhase(data.phase);
+          setRegEnd(data.registrationEnd);
         }
       } catch (err) {
         console.error("Failed to load phase:", err);

@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { getCandidates } from "../controllers/candidateController.js";
+import { uploadToIPFS } from "../services/ipfsService.js";
 import { config } from "../config/env.js";
 
 const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
@@ -19,6 +20,25 @@ const upload = multer({
   },
 });
 
+async function persistCandidatePhoto(buffer, originalName) {
+  const ext = (path.extname(originalName) || ".png").toLowerCase();
+  const filename = `${crypto.randomBytes(16).toString("hex")}${ext}`;
+
+  if (config.pinataKey && config.pinataSecret) {
+    const cid = await uploadToIPFS(buffer, filename);
+    const url = `https://ipfs.io/ipfs/${cid}`;
+    return { cid, url };
+  }
+
+  // Local fallback
+  await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  const cid = `local:${filename}`;
+  const base = config.publicUrl || `http://localhost:${config.port || 5000}`;
+  const url = `${base}/uploads/${filename}`;
+  return { cid, url };
+}
+
 const router = express.Router();
 
 router.get("/", getCandidates);
@@ -29,16 +49,14 @@ router.post("/upload-photo", upload.single("photo"), async (req, res) => {
       return res.status(400).json({ error: "photo file is required" });
     }
 
-    const ext = path.extname(req.file.originalname).toLowerCase() || ".png";
-    const filename = `${crypto.randomBytes(16).toString("hex")}${ext}`;
+    const { cid, url } = await persistCandidatePhoto(req.file.buffer, req.file.originalname);
 
-    await fs.mkdir(UPLOAD_DIR, { recursive: true });
-    await fs.writeFile(path.join(UPLOAD_DIR, filename), req.file.buffer);
-
-    const base = config.publicUrl || `http://localhost:${config.port || 5000}`;
-    const url = `${base}/uploads/${filename}`;
-
-    res.json({ success: true, url, filename });
+    res.json({
+      success: true,
+      url,
+      cid,
+      storage: cid.startsWith("local:") ? "local" : "ipfs",
+    });
   } catch (error) {
     res.status(500).json({ error: error.message || "Upload failed" });
   }

@@ -3,36 +3,67 @@ import { API_URL } from "../config";
 import { socket } from "../socket";
 
 const POSITIONS = ["President", "Secretary", "General Member"];
+const POSITION_COLORS = { President: "emerald", Secretary: "sky", "General Member": "amber" };
 
-function Bar({ value, max, label }) {
-  const pct = max > 0 ? (value / max) * 100 : 0;
+function CandidateCard({ candidate, maxVotes }) {
+  const pct = maxVotes > 0 ? ((candidate.vote_count ?? 0) / maxVotes) * 100 : 0;
+  const imgSrc = candidate.image_cid || candidate.photo;
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-app-heading truncate mr-2">{label}</span>
-        <span className="font-mono text-app-muted-text tabular-nums">{value}</span>
+    <div className="rounded-xl border border-app bg-app-surface overflow-hidden transition-all hover:border-app-accent/30">
+      <div className="aspect-square bg-app-muted/20 flex items-center justify-center overflow-hidden">
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt={candidate.name}
+            className="w-full h-full object-cover"
+            onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+          />
+        ) : null}
+        <div className={`${imgSrc ? "hidden" : "flex"} w-full h-full items-center justify-center text-3xl text-app-muted-text`}>
+          {candidate.gender === "female" ? "👩" : "🧑"}
+        </div>
       </div>
-      <div className="h-2.5 rounded-full bg-app-border/30 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-1000 ease-out"
-          style={{ width: `${pct}%` }}
-        />
+      <div className="p-3 space-y-1.5">
+        <p className="text-sm font-bold text-app-heading leading-tight truncate">{candidate.name}</p>
+        <div className="flex items-center gap-2 text-[10px] text-app-muted-text">
+          {candidate.year && <span>{candidate.year}</span>}
+          {candidate.gender && (
+            <span className={`px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+              candidate.gender === "female" ? "text-pink-400 bg-pink-500/10" : "text-sky-400 bg-sky-500/10"
+            }`}>
+              {candidate.gender}
+            </span>
+          )}
+        </div>
+        <div className="pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-mono text-app-heading font-bold">{candidate.vote_count ?? 0}</span>
+            <span className="text-app-muted-text">votes</span>
+          </div>
+          <div className="mt-1 h-1.5 rounded-full bg-app-border/30 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-1000 ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function PositionGroup({ title, candidates, maxVotes }) {
+function PositionSection({ title, candidates, maxVotes }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <h4 className="text-xs font-bold uppercase tracking-wider text-app-muted-text">{title}</h4>
-      <div className="space-y-2">
-        {candidates.map((c) => (
-          <Bar key={c.name} label={c.name} value={Number(c.vote_count ?? 0)} max={maxVotes} />
-        ))}
-      </div>
-      {candidates.length === 0 && (
-        <p className="text-xs text-app-muted-text italic">No candidates</p>
+      {candidates.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {candidates.map((c) => (
+            <CandidateCard key={c.name + c.position} candidate={c} maxVotes={maxVotes} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-app-muted-text italic py-4 text-center">No candidates</p>
       )}
     </div>
   );
@@ -79,16 +110,16 @@ function LiveResults() {
         <span className="text-sm font-mono text-app-muted-text ml-auto">{totalVotes} votes</span>
       </div>
       {data.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {POSITIONS.map((pos) =>
             grouped[pos] ? (
-              <PositionGroup key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
+              <PositionSection key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
             ) : null
           )}
           {Object.keys(grouped)
             .filter((pos) => !POSITIONS.includes(pos))
             .map((pos) => (
-              <PositionGroup key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
+              <PositionSection key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
             ))}
         </div>
       ) : (
@@ -126,20 +157,20 @@ function HistoryResults({ election }) {
         <span className="text-sm font-mono text-app-muted-text ml-auto">{totalVotes} votes</span>
       </div>
       {candidates.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {POSITIONS.map((pos) =>
             grouped[pos] ? (
-              <PositionGroup key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
+              <PositionSection key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
             ) : null
           )}
           {Object.keys(grouped)
             .filter((pos) => !POSITIONS.includes(pos))
             .map((pos) => (
-              <PositionGroup key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
+              <PositionSection key={pos} title={pos} candidates={grouped[pos]} maxVotes={maxVotes} />
             ))}
         </div>
       ) : (
-        <p className="text-xs text-app-muted-text italic">No data</p>
+        <p className="text-xs text-app-muted-text italic py-4 text-center">No data</p>
       )}
     </div>
   );

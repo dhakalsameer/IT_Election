@@ -1,10 +1,7 @@
 import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../context/AuthContextValue";
-import { getContractV3 } from "../contract";
 import CandidateSelfRegister from "./CandidateSelfRegister";
-import Election3ABI from "../abi/Election3.json";
-import { CONTRACT_ADDRESS_V3 } from "../config";
-import { ethers } from "ethers";
+import { API_URL } from "../config";
 
 function formatRemaining(seconds) {
   if (seconds <= 0) return null;
@@ -30,13 +27,11 @@ export default function MainRegistrationBanner() {
     (async () => {
       setLoadingPhase(true);
       try {
-        const provider = new ethers.JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
-        const contract = new ethers.Contract(CONTRACT_ADDRESS_V3, Election3ABI.abi, provider);
-        const p = await contract.getPhase();
-        const re = await contract.registrationEnd();
-        if (!cancelled) {
-          setPhase(Number(p));
-          setRegEnd(Number(re));
+        const res = await fetch(`${API_URL}/api/contract/phase`);
+        const data = await res.json();
+        if (!cancelled && res.ok) {
+          setPhase(data.phase);
+          setRegEnd(data.registrationEnd);
         }
       } catch (err) {
         console.error("Failed to load phase:", err);

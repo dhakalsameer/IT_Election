@@ -15,6 +15,7 @@ import authRoutes from "./routes/authRoutes.js";
 import registrationCodeRoutes from "./routes/registrationCodeRoutes.js";
 import distributionRoutes from "./routes/distributionRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
+import contractRoutes from "./routes/contractRoutes.js";
 
 import { startBlockchainSync } from "./blockchain/sync.js";
 import { setIO } from "./socket.js";
@@ -82,6 +83,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", registrationCodeRoutes);
 app.use("/api/distribution", distributionRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/contract", contractRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
