@@ -10,7 +10,9 @@ export function startBlockchainSync(io) {
 
   let prevVotes = {};
   let prevPhase = null;
+  let prevElectionId = 0;
   let prevCandidateCount = 0;
+  let snapshotInProgress = false;
 
   async function emitEvent(event) {
     try {
@@ -84,16 +86,25 @@ export function startBlockchainSync(io) {
   async function checkPhase() {
     try {
       const phase = Number(await electionContractV3.getPhase());
-      if (prevPhase !== null && prevPhase === 3 && phase === 0) {
-        const eid = Number(await electionContractV3.currentElectionId());
+      const eid = Number(await electionContractV3.currentElectionId());
+
+      // Detect new election: either by phase transition (3→0) or by election ID increment
+      const newElectionDetected =
+        (prevPhase !== null && prevPhase === 3 && phase === 0) ||
+        (prevElectionId > 0 && eid > prevElectionId);
+
+      if (newElectionDetected) {
         const prevElectionNum = eid - 1;
         console.log(`🏁 New election detected (ID: ${eid}), snapshotting election #${prevElectionNum}`);
+        snapshotInProgress = true;
+        // Snapshot BEFORE clearing — captures old candidates
         await snapshotResults(prevElectionNum);
         // Clear old candidate data and events for the new cycle
         await db.query("DELETE FROM candidates");
         await db.query("DELETE FROM events");
         prevVotes = {};
         prevCandidateCount = 0;
+        snapshotInProgress = false;
         await emitEvent({
           eventName: "NewElectionStarted",
           txHash: null,
@@ -110,6 +121,7 @@ export function startBlockchainSync(io) {
         });
       }
       prevPhase = phase;
+      prevElectionId = eid;
     } catch (err) {
       console.error("Phase check error:", err.message);
     }
@@ -117,6 +129,7 @@ export function startBlockchainSync(io) {
 
   async function syncAll() {
     try {
+      if (snapshotInProgress) return;
       const provider = electionContractV3.runner?.provider;
       if (!provider) return;
 
@@ -201,6 +214,7 @@ export function startBlockchainSync(io) {
     (async () => {
       try {
         prevPhase = Number(await electionContractV3.getPhase());
+        prevElectionId = Number(await electionContractV3.currentElectionId());
         prevCandidateCount = Number(await electionContractV3.candidateCount());
 
         // New election cycle — clear old data from DB

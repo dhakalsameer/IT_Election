@@ -31,9 +31,17 @@ export default function CandidateSelfRegister({ student, regEnd }) {
   const [proof, setProof] = useState(null);
   const [guid, setGuid] = useState(student?.student_id || "");
   const [position, setPosition] = useState(0);
-  const [imageCID, setImageCID] = useState("");
+  const [imageCID, setImageCID] = useState(student?.image_cid || "");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(
+    student?.image_cid
+      ? student.image_cid.startsWith("local:")
+        ? `${API_URL}/uploads/${student.image_cid.slice(6)}`
+        : student.image_cid.startsWith("http")
+          ? student.image_cid
+          : `https://ipfs.io/ipfs/${student.image_cid}`
+      : null
+  );
   const fileInputRef = useRef(null);
   const [loadingPhase, setLoadingPhase] = useState(false);
   const [loadingProof, setLoadingProof] = useState(false);
@@ -274,9 +282,8 @@ export default function CandidateSelfRegister({ student, regEnd }) {
           <input
             type="text"
             value={guid}
-            onChange={(e) => setGuid(e.target.value.toUpperCase())}
-            className="input-field mt-1 text-sm font-mono"
-            placeholder="e.g. GUSD430"
+            disabled
+            className="input-field mt-1 text-sm font-mono opacity-60 cursor-not-allowed"
           />
         </div>
 

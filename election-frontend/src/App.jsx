@@ -68,15 +68,7 @@ function App() {
                     <div className="space-y-4">
                       <VoterStatusCard voterStatus={voterStatus} balance={balance} />
                       <MainRegistrationBanner />
-                      {voterStatus.canVote && <VotingPanelV3 />}
-                      {voterStatus.hasVoted && (
-                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-10 text-center">
-                          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                            <span className="text-xl">✓</span>
-                          </div>
-                          <h2 className="text-lg font-bold text-emerald-400 uppercase tracking-wide">Vote Recorded</h2>
-                        </div>
-                      )}
+                      <VotingPanelV3 />
                     </div>
                   </AnimatedPage>
                 )}

@@ -90,6 +90,16 @@ export function AuthProvider({ children }) {
     const handleAccountsChanged = (accounts) => {
       const address = accounts[0] || null;
       setWallet(address);
+      setStudent(null);
+      setVoterStatus({
+        registered: false,
+        walletLinked: false,
+        verified: false,
+        canVote: false,
+        hasVoted: false,
+        image_cid: null,
+        name: null,
+      });
 
       if (address) {
         checkVoterStatus(address);

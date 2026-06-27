@@ -142,6 +142,7 @@ contract Election3 {
 
     function startVoting(uint256 _end) external onlyAdmin {
         require(phase == Phase.Registration, "Not ready");
+        require(block.timestamp >= registrationEnd, "Registration period not over");
         require(_end > block.timestamp, "End must be in future");
         phase = Phase.Voting;
         votingEnd = _end;
@@ -150,6 +151,7 @@ contract Election3 {
 
     function endElection() external onlyAdmin {
         require(phase == Phase.Voting, "Not in voting");
+        require(block.timestamp >= votingEnd, "Voting period not over");
         phase = Phase.Ended;
         emit PhaseChanged(Phase.Ended);
     }

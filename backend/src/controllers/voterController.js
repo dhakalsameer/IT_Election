@@ -30,13 +30,21 @@ export async function rebuildMerkleTrees() {
   const identityRoot = generateIdentityMerkleRoot(identities);
 
   console.log("Updating Voter Merkle Root to:", root);
-  console.log("Updating Identity Merkle Root to:", identityRoot);
 
   const tx1 = await electionContractV3.setMerkleRoot(root);
   await tx1.wait();
 
-  const tx2 = await electionContractV3.setIdentityMerkleRoot(identityRoot);
-  const receipt = await tx2.wait();
+  const phase = Number(await electionContractV3.getPhase());
+  const identityLocked = phase >= 2;
+  let receipt;
+  if (!identityLocked) {
+    console.log("Updating Identity Merkle Root to:", identityRoot);
+    const tx2 = await electionContractV3.setIdentityMerkleRoot(identityRoot);
+    receipt = await tx2.wait();
+  } else {
+    console.log("Identity root locked — skipping identity Merkle root update");
+    receipt = await tx1.wait();
+  }
 
   emitEvent("dataChanged", { type: "voters" });
 
@@ -167,13 +175,21 @@ export const bulkVerifyVoters = async (req, res) => {
     const identityRoot = generateIdentityMerkleRoot(identities);
 
     console.log("Updating Voter Merkle Root to:", root);
-    console.log("Updating Identity Merkle Root to:", identityRoot);
 
     const tx1 = await electionContractV3.setMerkleRoot(root);
     await tx1.wait();
 
-    const tx2 = await electionContractV3.setIdentityMerkleRoot(identityRoot);
-    const receipt = await tx2.wait();
+    const phase = Number(await electionContractV3.getPhase());
+    const identityLocked = phase >= 2;
+    let receipt;
+    if (!identityLocked) {
+      console.log("Updating Identity Merkle Root to:", identityRoot);
+      const tx2 = await electionContractV3.setIdentityMerkleRoot(identityRoot);
+      receipt = await tx2.wait();
+    } else {
+      console.log("Identity root locked — skipping identity Merkle root update");
+      receipt = await tx1.wait();
+    }
 
     emitEvent("dataChanged", { type: "voters" });
 

@@ -5,6 +5,131 @@ import { socket } from "../socket";
 const POSITIONS = ["President", "Secretary", "General Member"];
 const POSITION_COLORS = { President: "emerald", Secretary: "sky", "General Member": "amber" };
 
+function getImageUrl(cid) {
+  if (!cid) return null;
+  if (cid.startsWith("local:")) return `${API_URL}/uploads/${cid.slice(6)}`;
+  if (cid.startsWith("http")) return cid;
+  return `https://ipfs.io/ipfs/${cid}`;
+}
+
+function fmtYear(y) {
+  if (!y) return "";
+  const n = parseInt(y, 10);
+  if (Number.isFinite(n)) return `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"} Year`;
+  return y;
+}
+
+function Avatar({ src, name, size }) {
+  const s = size === "sm" ? "h-14 w-14" : "h-16 w-16";
+  const fs = size === "sm" ? "text-xs" : "text-sm";
+  const initials = (name || "?").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <div className={`${s} rounded-full overflow-hidden border-2 border-app/30 shrink-0 bg-gradient-to-br from-emerald-500/20 to-sky-500/20`}>
+      {src ? (
+        <img src={src} alt="" className="h-full w-full object-cover"
+          onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+        />
+      ) : null}
+      <div className={`${src ? "hidden" : "flex"} h-full w-full items-center justify-center ${fs} font-bold text-app-muted-text`}>
+        {initials}
+      </div>
+    </div>
+  );
+}
+
+function getWinners(candidates) {
+  const pres = candidates.filter(c => c.position === "President").sort((a, b) => Number(b.vote_count) - Number(a.vote_count));
+  const sec = candidates.filter(c => c.position === "Secretary").sort((a, b) => Number(b.vote_count) - Number(a.vote_count));
+  const gms = candidates.filter(c => c.position === "General Member").sort((a, b) => Number(b.vote_count) - Number(a.vote_count)).slice(0, 5);
+  return {
+    president: pres.length > 0 ? pres[0] : null,
+    secretary: sec.length > 0 ? sec[0] : null,
+    gmWinners: gms,
+  };
+}
+
+function WinnersDeclaration({ candidates, isLive, electionNumber }) {
+  const winners = useMemo(() => getWinners(candidates), [candidates]);
+  const hasAny = winners.president || winners.secretary || winners.gmWinners.length > 0;
+  if (!hasAny) return null;
+
+  const title = isLive ? "Current Leaders" : `Election ${electionNumber} Winners`;
+
+  return (
+    <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-sky-500/5 to-amber-500/5 p-6 mb-6">
+      <h3 className="text-base font-bold uppercase tracking-wider text-app-heading mb-5 flex items-center gap-2">
+        <span className="text-lg">🏆</span> {title}
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+        {winners.president && (
+          <div className="flex items-center gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] px-5 py-4">
+            <Avatar src={getImageUrl(winners.president.image_cid || winners.president.photo)} name={winners.president.name} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-1">President</p>
+              <p className="text-lg font-bold text-app-heading break-words">{winners.president.name}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                {winners.president.year && <span className="text-xs text-app-muted-text whitespace-nowrap">{fmtYear(winners.president.year)}</span>}
+                {winners.president.gender && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${
+                    winners.president.gender === "female" ? "text-pink-400 bg-pink-500/10" : "text-sky-400 bg-sky-500/10"
+                  }`}>{winners.president.gender}</span>
+                )}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-black text-emerald-400">{Number(winners.president.vote_count)}</p>
+              <p className="text-[10px] text-app-muted-text">votes</p>
+            </div>
+          </div>
+        )}
+        {winners.secretary && (
+          <div className="flex items-center gap-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] px-5 py-4">
+            <Avatar src={getImageUrl(winners.secretary.image_cid || winners.secretary.photo)} name={winners.secretary.name} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-sky-400 mb-1">Secretary</p>
+              <p className="text-lg font-bold text-app-heading break-words">{winners.secretary.name}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                {winners.secretary.year && <span className="text-xs text-app-muted-text whitespace-nowrap">{fmtYear(winners.secretary.year)}</span>}
+                {winners.secretary.gender && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${
+                    winners.secretary.gender === "female" ? "text-pink-400 bg-pink-500/10" : "text-sky-400 bg-sky-500/10"
+                  }`}>{winners.secretary.gender}</span>
+                )}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-black text-sky-400">{Number(winners.secretary.vote_count)}</p>
+              <p className="text-[10px] text-app-muted-text">votes</p>
+            </div>
+          </div>
+        )}
+      </div>
+      {winners.gmWinners.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-3">General Members</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {winners.gmWinners.map((gm, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.03] px-4 py-4 text-center">
+                <Avatar src={getImageUrl(gm.image_cid || gm.photo)} name={gm.name} size="sm" />
+                <p className="text-sm font-bold text-app-heading leading-snug break-words w-full">{gm.name}</p>
+                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                  {gm.year && <span className="text-[10px] text-app-muted-text">{fmtYear(gm.year)}</span>}
+                  {gm.gender && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                      gm.gender === "female" ? "text-pink-400 bg-pink-500/10" : "text-sky-400 bg-sky-500/10"
+                    }`}>{gm.gender}</span>
+                  )}
+                </div>
+                <span className="text-sm font-mono font-bold text-amber-400">{Number(gm.vote_count)} vote{Number(gm.vote_count) !== 1 ? "s" : ""}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CandidateCard({ candidate, maxVotes }) {
   const pct = maxVotes > 0 ? ((candidate.vote_count ?? 0) / maxVotes) * 100 : 0;
   const imgSrc = candidate.image_cid || candidate.photo;
@@ -106,6 +231,7 @@ function LiveResults() {
 
   return (
     <div className="space-y-4">
+      <WinnersDeclaration candidates={data} isLive={true} electionNumber={null} />
       <div className="flex items-center gap-2">
         <span className="text-sm font-mono text-app-muted-text ml-auto">{totalVotes} votes</span>
       </div>
@@ -148,6 +274,7 @@ function HistoryResults({ election }) {
 
   return (
     <div className="space-y-4">
+      <WinnersDeclaration candidates={candidates} isLive={false} electionNumber={election.election_number} />
       <div className="flex items-center gap-2">
         <span className="text-xs text-app-muted-text">
           {new Date(election.snapshot_at).toLocaleDateString(undefined, {
