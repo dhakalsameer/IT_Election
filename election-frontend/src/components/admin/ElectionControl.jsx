@@ -40,17 +40,17 @@ function PhaseTag({ phase, remaining }) {
   ];
   const pulse = phase === 1 || phase === 2;
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-app bg-app-surface px-4 py-3">
+    <div className="flex items-center gap-3 rounded-lg border border-app bg-app-surface px-5 py-4">
       <div className="relative">
-        <span className={`h-2.5 w-2.5 rounded-full block ${colors[phase]?.split(" ")[0] || "bg-app-muted"}`} />
-        {pulse && <span className="absolute inset-0 h-2.5 w-2.5 rounded-full bg-inherit animate-ping opacity-50" />}
+        <span className={`h-3 w-3 rounded-full block ${colors[phase]?.split(" ")[0] || "bg-app-muted"}`} />
+        {pulse && <span className="absolute inset-0 h-3 w-3 rounded-full bg-inherit animate-ping opacity-50" />}
       </div>
-      <span className="text-sm font-bold text-app-heading">{PHASE_NAMES[phase]}</span>
+      <span className="text-base font-bold text-app-heading">{PHASE_NAMES[phase]}</span>
       {remaining != null && remaining > 0 && (
-        <span className="text-xs font-mono text-emerald-400">{formatRemaining(remaining)} remaining</span>
+        <span className="text-sm font-mono text-emerald-400">{formatRemaining(remaining)} remaining</span>
       )}
       {remaining != null && remaining <= 0 && phase > 0 && phase < 3 && (
-        <span className="text-xs font-mono text-rose-400">Deadline passed</span>
+        <span className="text-sm font-mono text-rose-400">Deadline passed</span>
       )}
     </div>
   );
@@ -59,14 +59,14 @@ function PhaseTag({ phase, remaining }) {
 function ActionCard({ title, description, icon, children }) {
   return (
     <div className="rounded-xl border border-app bg-app-surface overflow-hidden">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-app/50 bg-app-muted/20">
-        <span className="text-lg">{icon}</span>
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-app/50 bg-app-muted/20">
+        <span className="text-2xl">{icon}</span>
         <div>
-          <h3 className="text-sm font-bold text-app-heading">{title}</h3>
-          <p className="text-xs text-app-muted-text mt-0.5">{description}</p>
+          <h3 className="text-base font-bold text-app-heading">{title}</h3>
+          <p className="text-sm text-app-muted-text mt-0.5">{description}</p>
         </div>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </div>
   );
 }
@@ -80,7 +80,7 @@ function DateInput({ label, value, onChange, disabled }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="mt-1.5 w-full rounded-xl border border-app bg-app-input text-app-heading px-3.5 py-2.5 text-sm transition-all focus:border-emerald-500 focus:outline-none placeholder:text-app-muted font-mono"
+        className="mt-1.5 w-full rounded-xl border border-app bg-app-input text-app-heading px-4 py-3 text-base transition-all focus:border-emerald-500 focus:outline-none placeholder:text-app-muted font-mono"
       />
     </label>
   );
@@ -98,7 +98,7 @@ function ActionButton({ children, variant = "green", onClick, disabled, icon, pr
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`w-full rounded-xl ${variants[variant]} px-4 py-3 text-xs font-black uppercase tracking-wider transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-98`}
+      className={`w-full rounded-xl ${variants[variant]} px-5 py-3.5 text-sm font-black uppercase tracking-wider transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer active:scale-98`}
     >
       <span className="flex items-center justify-center gap-2">
         {processing ? (
@@ -230,7 +230,7 @@ export default function ElectionControl() {
       )}
 
       {phase !== null && (
-        <p className="text-xs text-app-muted-text leading-relaxed -mt-2">
+        <p className="text-sm text-app-muted-text leading-relaxed -mt-2">
           {PHASE_DESCRIPTIONS[phase]}
         </p>
       )}
@@ -314,7 +314,7 @@ export default function ElectionControl() {
           icon="🔄"
         >
           <div className="space-y-3">
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-400">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-400">
               <p className="font-bold">This will:</p>
               <ul className="list-disc list-inside mt-1 space-y-0.5 text-app-muted-text">
                 <li>Record winners for President, Secretary, and General Member</li>
@@ -340,8 +340,8 @@ export default function ElectionControl() {
       {/* Ended but no candidates: info state */}
       {phase === 3 && candidateCount === 0 && (
         <ActionCard title="No Candidates" description="Cannot start a new election without registered candidates." icon="⚠️">
-          <div className="rounded-lg border border-app bg-app-muted/30 p-4 text-center">
-            <p className="text-xs text-app-muted-text">
+          <div className="rounded-lg border border-app bg-app-muted/30 p-5 text-center">
+            <p className="text-sm text-app-muted-text">
               The previous election had no candidates. Use the voter management panel to add students and whitelist them,
               then candidates can register when you open registration.
             </p>
@@ -353,33 +353,33 @@ export default function ElectionControl() {
       <div className="border-t border-app/80 pt-5">
         <SectionHeader icon="📜" title="Election History" />
         {historyLoading ? (
-          <p className="text-sm text-app-muted-text animate-pulse mt-2">Loading history…</p>
+          <p className="text-base text-app-muted-text animate-pulse mt-2">Loading history…</p>
         ) : history.length === 0 ? (
-          <p className="text-sm text-app-muted-text mt-2">No past election results yet.</p>
+          <p className="text-base text-app-muted-text mt-2">No past election results yet.</p>
         ) : (
           <div className="space-y-3 mt-3">
             {history.map((r) => (
-              <div key={r.id} className="rounded-lg border border-app bg-app-surface p-3 space-y-1.5 text-xs">
+              <div key={r.id} className="rounded-lg border border-app bg-app-surface p-4 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-app-heading">Election #{r.id + 1}</span>
                   <span className="text-app-muted-text">{r.timestamp}</span>
                 </div>
                 <p className="text-app-muted-text">{r.totalCandidates} candidates</p>
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <div className="rounded bg-emerald-500/10 px-2 py-1.5 text-center">
-                    <p className="text-[10px] uppercase text-emerald-400 font-bold">President</p>
-                    <p className="font-semibold text-app-heading">{r.pres}</p>
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="rounded bg-emerald-500/10 px-3 py-2 text-center">
+                    <p className="text-xs uppercase text-emerald-400 font-bold">President</p>
+                    <p className="font-semibold text-app-heading text-sm">{r.pres}</p>
                   </div>
-                  <div className="rounded bg-sky-500/10 px-2 py-1.5 text-center">
-                    <p className="text-[10px] uppercase text-sky-400 font-bold">Secretary</p>
-                    <p className="font-semibold text-app-heading">{r.sec}</p>
+                  <div className="rounded bg-sky-500/10 px-3 py-2 text-center">
+                    <p className="text-xs uppercase text-sky-400 font-bold">Secretary</p>
+                    <p className="font-semibold text-app-heading text-sm">{r.sec}</p>
                   </div>
-                  <div className="rounded bg-amber-500/10 px-2 py-1.5 text-center">
-                    <p className="text-[10px] uppercase text-amber-400 font-bold">General Member</p>
+                  <div className="rounded bg-amber-500/10 px-3 py-2 text-center">
+                    <p className="text-xs uppercase text-amber-400 font-bold">General Member</p>
                     {r.gmNames ? (
                       <ul className="space-y-0.5">
                         {r.gmNames.map((name, idx) => (
-                          <li key={idx} className="font-semibold text-app-heading text-[11px]">{name}</li>
+                          <li key={idx} className="font-semibold text-app-heading text-sm">{name}</li>
                         ))}
                       </ul>
                     ) : (

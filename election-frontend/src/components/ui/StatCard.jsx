@@ -7,7 +7,7 @@ export default function StatCard({ label, value, accent = "default" }) {
   }[accent];
 
   return (
-    <div className="glass-panel rounded-2xl border border-app p-4 sm:p-5 text-center shadow-sm">
+    <div className="glass-panel rounded-xl border border-app p-3 sm:p-4 text-center shadow-sm">
       <p className={`text-2xl sm:text-3xl font-mono font-black ${valueClass}`}>{value}</p>
       <p className="mt-1 text-xs font-mono font-bold uppercase tracking-widest text-app-muted">{label}</p>
     </div>

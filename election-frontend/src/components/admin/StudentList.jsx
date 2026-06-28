@@ -10,20 +10,23 @@ import DataTable from "../ui/DataTable";
 function StatusBadge({ eligibleToVote, registered }) {
   if (eligibleToVote) {
     return (
-      <span className="rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-neon-glow">
+      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
         Verified
       </span>
     );
   }
   if (registered) {
     return (
-      <span className="rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/20 text-amber-400">
+      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider bg-amber-500/10 border border-amber-500/20 text-amber-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
         Registered
       </span>
     );
   }
   return (
-    <span className="rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider bg-[#0d1510] border border-[#1e3a2b] text-slate-500">
+    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider bg-app-elevated border border-app text-app-muted">
+      <span className="h-1.5 w-1.5 rounded-full bg-app-muted" />
       Awaiting Link
     </span>
   );
@@ -36,6 +39,8 @@ export default function StudentList() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [yearFilter, setYearFilter] = useState("all");
 
   const handleLoadData = useCallback(async () => {
     if (!wallet) return;
@@ -115,7 +120,6 @@ export default function StudentList() {
     e.target.value = "";
   };
 
-  // Auto-load once when wallet becomes available (async, no sync setState)
   useEffect(() => {
     if (!wallet) return;
     let cancelled = false;
@@ -136,56 +140,101 @@ export default function StudentList() {
   }, [wallet, showError]);
 
   const filtered = students.filter((s) => {
+    if (yearFilter !== "all") {
+      const syear = parseInt(s.registration_year || s.year || "0");
+      if (syear !== parseInt(yearFilter)) return false;
+    }
     const q = filter.trim().toUpperCase();
     if (!q) return true;
     return (s.student_id || "").toUpperCase().includes(q) || (s.name || "").toUpperCase().includes(q);
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sort === "recent") {
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    }
+    if (sort === "year") {
+      const ay = parseInt((a.registration_year || a.year || "0"));
+      const by = parseInt((b.registration_year || b.year || "0"));
+      return by - ay;
+    }
+    if (sort === "name") {
+      return (a.name || "").localeCompare(b.name || "");
+    }
+    return (a.student_id || "").localeCompare(b.student_id || "");
   });
 
   const verifiedCount = students.filter((s) => s.eligibleToVote).length;
   const total = students.length;
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-6">
       <SectionHeader icon="🎓" title="Student Registry" />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3">
         <StatCard label="Total" value={total} />
         <StatCard label="Verified" value={verifiedCount} accent="emerald" />
         <StatCard label="Registered" value={students.filter((s) => s.registered && !s.eligibleToVote).length} accent="amber" />
       </div>
 
-      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Search student ID or name…"
-          className="input-field flex-1 min-w-0 text-sm"
-        />
-        <div className="flex gap-2 sm:gap-3">
-          <button
-            onClick={handleLoadData}
-            disabled={fetching}
-            className="flex-1 sm:flex-none rounded-xl border border-app bg-app-input px-4 sm:px-5 py-2.5 text-sm font-bold text-app-muted hover:text-app-heading hover:bg-app-elevated transition-all cursor-pointer disabled:opacity-50"
-          >
-            {fetching ? "Refreshing…" : "🔄 Refresh"}
-          </button>
-          <label className="flex-1 sm:flex-none rounded-xl bg-emerald-500 text-slate-950 px-4 sm:px-5 py-2.5 text-sm font-black uppercase tracking-wider shadow-neon-glow hover:bg-emerald-400 text-center cursor-pointer">
-            📥 Load CSV
-            <input type="file" accept=".csv" onChange={handleLoadAsCSV} className="hidden" />
-          </label>
-        </div>
+      {/* Year filter */}
+      <div className="flex items-center gap-2">
+        <button onClick={() => setYearFilter("all")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "all" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>All</button>
+        <button onClick={() => setYearFilter("1")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "1" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>1st Year</button>
+        <button onClick={() => setYearFilter("2")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "2" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>2nd Year</button>
+        <button onClick={() => setYearFilter("3")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "3" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>3rd Year</button>
+        <button onClick={() => setYearFilter("4")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "4" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>4th Year</button>
       </div>
 
-      {filtered.length === 0 ? (
+      {/* Filter + actions */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search by student ID or name…"
+            className="input-field w-full pl-10 pr-4 py-2.5 text-sm"
+          />
+        </div>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="rounded-lg border border-app bg-app-input px-3 py-2.5 text-sm text-app-muted-text hover:text-app-heading cursor-pointer focus:outline-none"
+        >
+          <option value="recent">By Recent</option>
+          <option value="year">By Year</option>
+          <option value="name">By Name</option>
+          <option value="id">By ID</option>
+        </select>
+        <button
+          onClick={handleLoadData}
+          disabled={fetching}
+          className="rounded-lg border border-app bg-app-input px-4 py-2.5 text-sm font-medium text-app-muted-text hover:text-app-heading hover:bg-app-elevated transition-all cursor-pointer disabled:opacity-50"
+        >
+          {fetching ? "Refreshing…" : "Refresh"}
+        </button>
+        <label className="rounded-lg bg-emerald-500 text-slate-950 px-4 py-2.5 text-sm font-bold cursor-pointer hover:bg-emerald-400 transition-all text-center">
+          Upload CSV
+          <input type="file" accept=".csv" onChange={handleLoadAsCSV} className="hidden" />
+        </label>
+      </div>
+
+      {/* Table */}
+      {sorted.length === 0 ? (
         <EmptyState
           icon="🎓"
-          message={students.length === 0 ? "No student records currently cached." : "No matching student profiles."}
+          message={students.length === 0 ? "No student records found. Upload a CSV to get started." : "No matching students."}
         />
       ) : (
         <DataTable
           keyExtractor={(s) => s.id || s.student_id}
-          data={filtered}
+          data={sorted}
           columns={[
             {
               key: "student_id",
@@ -196,7 +245,7 @@ export default function StudentList() {
             {
               key: "name",
               label: "Name",
-              cellClassName: "font-bold text-app-heading",
+              cellClassName: "font-medium text-app-heading",
               render: (s) => s.name || "—",
             },
             {
@@ -211,19 +260,19 @@ export default function StudentList() {
             },
             {
               key: "created_at",
-              label: "Created",
-              cellClassName: "font-mono",
+              label: "Added",
+              cellClassName: "font-mono text-sm",
               render: (s) => (s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"),
             },
             {
               key: "actions",
-              label: "Action",
+              label: "",
               align: "right",
               render: (s) => (
                 <button
                   onClick={() => handleDelete(s.student_id)}
                   disabled={loading}
-                  className="rounded-xl px-3 py-1.5 text-xs font-black uppercase tracking-wider text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer disabled:opacity-40"
+                  className="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer disabled:opacity-40"
                 >
                   Delete
                 </button>
@@ -240,7 +289,6 @@ function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
   if (lines.length === 0) return [];
 
-  // Detect header row and skip it
   let startIndex = 0;
   const firstCols = lines[0].split(",").map((c) => c.trim().toUpperCase());
   if (firstCols.includes("STUDENT_ID") || firstCols.includes("ID") || firstCols.includes("NAME")) {

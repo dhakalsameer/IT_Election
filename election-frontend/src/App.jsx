@@ -1,9 +1,10 @@
-import { useContext, useState, useRef } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
+import { JsonRpcProvider } from "ethers";
 import { AnimatePresence, motion } from "framer-motion";
 import { useBalance } from "./hooks/useBalance";
 import { AuthContext } from "./context/AuthContextValue";
 import { ToastProvider } from "./components/ui/Toast";
-import { CONTRACT_ADDRESS_V3, SEPOLIA_NETWORK, SEPOLIA_CHAIN_ID } from "./config";
+import { CONTRACT_ADDRESS_V3, SEPOLIA_NETWORK, SEPOLIA_CHAIN_ID, SEPOLIA_EXPLORER } from "./config";
 import AppHeader from "./components/ui/AppHeader";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import VotingPanelV3 from "./components/VotingPanelV3";
@@ -45,8 +46,65 @@ function App() {
   const { balance } = useBalance(wallet);
   const [portalOpen, setPortalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(null);
+  const [hoveredNode, setHoveredNode] = useState(null);
+  const [blockHeight, setBlockHeight] = useState(null);
 
-  const currentTab = activeTab || (isAdmin ? "admin" : "vote");
+  const currentTab = activeTab || (!wallet ? "home" : isAdmin ? "admin" : "vote");
+
+  const networkNodes = [
+    { x: 10, y: 20, color: 'var(--app-accent)' },
+    { x: 25, y: 10, color: 'var(--app-heading)' },
+    { x: 40, y: 25, color: 'var(--app-accent)' },
+    { x: 55, y: 8, color: 'var(--app-heading)' },
+    { x: 70, y: 18, color: 'var(--app-accent)' },
+    { x: 85, y: 12, color: 'var(--app-heading)' },
+    { x: 90, y: 30, color: 'var(--app-accent)' },
+    { x: 15, y: 55, color: 'var(--app-heading)' },
+    { x: 30, y: 70, color: 'var(--app-accent)' },
+    { x: 50, y: 60, color: 'var(--app-accent)' },
+    { x: 65, y: 75, color: 'var(--app-heading)' },
+    { x: 80, y: 55, color: 'var(--app-accent)' },
+    { x: 95, y: 70, color: 'var(--app-heading)' },
+    { x: 5, y: 80, color: 'var(--app-accent)' },
+    { x: 45, y: 85, color: 'var(--app-heading)' },
+    { x: 75, y: 88, color: 'var(--app-accent)' },
+  ];
+
+  const connections = [
+    [0, 1], [0, 2], [1, 2], [2, 3], [2, 4], [3, 4], [4, 5], [4, 6],
+    [5, 6], [7, 8], [7, 9], [8, 9], [9, 10], [9, 11], [10, 11],
+    [11, 12], [13, 7], [13, 14], [7, 14], [9, 14], [9, 15], [14, 15],
+    [0, 7], [2, 9], [4, 11], [6, 12],
+  ];
+
+  const Cube3D = ({ x, y, size, color, opacity }) => {
+    const s = size || 4;
+    const h = s * 0.866;
+    const top = `0,${-s} ${h},${-s * 0.5} 0,0 ${-h},${-s * 0.5}`;
+    const left = `${-h},${-s * 0.5} 0,0 0,${s} ${-h},${s * 0.5}`;
+    const right = `0,0 ${h},${-s * 0.5} ${h},${s * 0.5} 0,${s}`;
+    return (
+      <g transform={`translate(${x}, ${y})`}>
+        <polygon points={top} fill={color} opacity={opacity * 0.25} />
+        <polygon points={left} fill={color} opacity={opacity * 0.45} />
+        <polygon points={right} fill={color} opacity={opacity * 0.65} />
+      </g>
+    );
+  };
+
+  useEffect(() => {
+    const provider = new JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
+    let mounted = true;
+    const fetchBlock = async () => {
+      try {
+        const num = await provider.getBlockNumber();
+        if (mounted) setBlockHeight(num);
+      } catch { /* fallback silently */ }
+    };
+    fetchBlock();
+    const interval = setInterval(fetchBlock, 12000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
 
   return (
     <ToastProvider>
@@ -57,48 +115,144 @@ function App() {
           setActiveTab={setActiveTab}
         />
 
-        <main className="page-container py-8">
-          {!wallet ? (
-            <LandingPage onOpenPortal={() => setPortalOpen(true)} />
-          ) : (
-            <div className="mx-auto max-w-3xl">
-              <AnimatePresence mode="wait">
-                {currentTab === "vote" && !isAdmin && (
-                  <AnimatedPage key="vote">
-                    <div className="space-y-4">
-                      <VoterStatusCard voterStatus={voterStatus} balance={balance} />
-                      <MainRegistrationBanner />
-                      <VotingPanelV3 />
-                    </div>
-                  </AnimatedPage>
-                )}
+        {/* persistent blockchain network background */}
+        <div className="fixed inset-0 z-0 overflow-hidden">
+          <svg
+            className="h-full w-full opacity-35"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="xMidYMid slice"
+          >
+            <style>{`
+              @keyframes pulseBlock {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.3); }
+              }
+            `}</style>
 
-                {(currentTab === "vote" || currentTab === "admin") && isAdmin && (
-                  <AnimatedPage key="admin">
-                    <AdminDashboard />
-                  </AnimatedPage>
-                )}
+            {/* orbital cubes on both sides */}
+            {[
+              { cx: 3, cy: 15, r: 8, speed: 18, color: 'var(--app-accent)' },
+              { cx: 3, cy: 85, r: 8, speed: 22, color: 'var(--app-accent)' },
+              { cx: 97, cy: 15, r: 8, speed: 20, color: 'var(--app-accent)' },
+              { cx: 97, cy: 85, r: 8, speed: 16, color: 'var(--app-accent)' },
+            ].map((orbit, idx) => (
+              <g key={`orbit-${idx}`} transform={`translate(${orbit.cx}, ${orbit.cy})`}>
+                <circle cx="0" cy="0" r={orbit.r} fill="none" stroke={orbit.color} strokeWidth="0.15" opacity="0.15" />
+                <g>
+                  <animateMotion
+                    dur={`${orbit.speed}s`}
+                    repeatCount="indefinite"
+                    path={`M0,${-orbit.r} A${orbit.r},${orbit.r} 0 1,1 0,${orbit.r} A${orbit.r},${orbit.r} 0 1,1 0,${-orbit.r}`}
+                  />
+                  <Cube3D x={0} y={0} size={3.5} color={orbit.color} opacity={0.6} />
+                </g>
+              </g>
+            ))}
 
-                {currentTab === "results" && (
-                  <AnimatedPage key="results">
-                    {isAdmin ? <AnalyticsDashboard /> : <Results />}
-                  </AnimatedPage>
-                )}
+            {connections.map(([i, j], idx) => {
+              const active = hoveredNode !== null && (i === hoveredNode || j === hoveredNode);
+              return (
+                <line
+                  key={idx}
+                  x1={networkNodes[i].x}
+                  y1={networkNodes[i].y}
+                  x2={networkNodes[j].x}
+                  y2={networkNodes[j].y}
+                  stroke={active ? 'var(--app-accent)' : 'var(--app-border)'}
+                  strokeWidth={active ? '0.4' : '0.2'}
+                  strokeDasharray={active ? '4 6' : 'none'}
+                  opacity={active ? '0.7' : '0.4'}
+                  style={{ transition: 'stroke 0.3s, stroke-width 0.3s, opacity 0.3s' }}
+                />
+              );
+            })}
 
-                {currentTab === "activity" && (
-                  <AnimatedPage key="activity">
-                    <LiveBlockchainDashboard />
-                  </AnimatedPage>
-                )}
+            {/* transaction blocks moving along network lines */}
+            {[
+              { from: 0, to: 7, dur: 12, delay: 0, color: 'var(--app-accent)' },
+              { from: 7, to: 0, dur: 12, delay: 6, color: 'var(--app-accent)' },
+            ].map((tx, idx) => {
+              const a = networkNodes[tx.from];
+              const b = networkNodes[tx.to];
+              return (
+                <g key={`tx-${idx}`}>
+                  <g>
+                    <animateMotion
+                      dur={`${tx.dur}s`}
+                      repeatCount="indefinite"
+                      begin={`${tx.delay}s`}
+                      path={`M${a.x},${a.y} L${b.x},${b.y}`}
+                    />
+                    <Cube3D x={0} y={0} size={3.5} color={tx.color} opacity={0.7} />
+                  </g>
+                </g>
+              );
+            })}
 
-                {currentTab === "docs" && (
-                  <AnimatedPage key="docs" className="max-w-3xl mx-auto">
-                    <ArchitectureOverview />
-                  </AnimatedPage>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+            {networkNodes.map((node, idx) => {
+              const active = hoveredNode === idx;
+              return (
+                <g
+                  key={idx}
+                  onMouseEnter={() => setHoveredNode(idx)}
+                  onMouseLeave={() => setHoveredNode(null)}
+                  className="cursor-pointer"
+                  style={{
+                    transformOrigin: `${node.x} ${node.y}`,
+                    animation: active ? `pulseBlock 1.5s ease-in-out infinite` : 'none',
+                  }}
+                >
+                  <Cube3D x={node.x} y={node.y} size={5} color={node.color} opacity={active ? 0.8 : 0.5} />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        <main className="relative z-10 page-container py-8">
+          <div className={`mx-auto ${currentTab === "vote" || currentTab === "home" ? "max-w-3xl" : "max-w-6xl"}`}>
+            <AnimatePresence mode="wait">
+              {currentTab === "home" && !wallet && (
+                <AnimatedPage key="home">
+                  <LandingPage onOpenPortal={() => setPortalOpen(true)} blockHeight={blockHeight} />
+                </AnimatedPage>
+              )}
+
+              {currentTab === "vote" && !isAdmin && wallet && (
+                <AnimatedPage key="vote">
+                  <div className="space-y-4">
+                    <VoterStatusCard voterStatus={voterStatus} balance={balance} />
+                    <MainRegistrationBanner />
+                    <VotingPanelV3 />
+                  </div>
+                </AnimatedPage>
+              )}
+
+              {(currentTab === "vote" || currentTab === "admin") && isAdmin && (
+                <AnimatedPage key="admin">
+                  <AdminDashboard />
+                </AnimatedPage>
+              )}
+
+              {currentTab === "results" && (
+                <AnimatedPage key="results">
+                  {isAdmin ? <AnalyticsDashboard /> : <Results />}
+                </AnimatedPage>
+              )}
+
+              {currentTab === "activity" && (
+                <AnimatedPage key="activity">
+                  <LiveBlockchainDashboard />
+                </AnimatedPage>
+              )}
+
+              {currentTab === "docs" && (
+                <AnimatedPage key="docs" className="max-w-3xl mx-auto">
+                  <ArchitectureOverview />
+                </AnimatedPage>
+              )}
+            </AnimatePresence>
+          </div>
         </main>
       </div>
 
@@ -108,57 +262,142 @@ function App() {
   );
 }
 
-function VoteIcon() {
-  return (
-    <svg viewBox="0 0 80 80" className="w-16 h-16">
-      <defs>
-        <linearGradient id="vg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#34d399" />
-          <stop offset="100%" stopColor="#38bdf8" />
-        </linearGradient>
-      </defs>
-      {/* Ballot box */}
-      <rect x="12" y="30" width="56" height="38" rx="6" fill="none" stroke="url(#vg)" strokeWidth="2.5" />
-      <rect x="16" y="34" width="48" height="4" rx="1.5" fill="url(#vg)" opacity="0.3" />
-      {/* Slot */}
-      <rect x="30" y="22" width="20" height="10" rx="3" fill="none" stroke="url(#vg)" strokeWidth="2" />
-      {/* Checkmark */}
-      <path d="M52 46l-12 12-8-8" fill="none" stroke="url(#vg)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Small star accent */}
-      <path d="M68 12l-2 4-4 .5 3 3-.5 4 3.5-2 3.5 2-.5-4 3-3-4-.5z" fill="#fbbf24" opacity="0.8" />
-    </svg>
-  );
-}
+function LandingPage({ onOpenPortal, blockHeight }) {
+  const [liveBlocks, setLiveBlocks] = useState([]);
+  const providerRef = useRef(null);
+  if (!providerRef.current) {
+    providerRef.current = new JsonRpcProvider("https://ethereum-sepolia-rpc.publicnode.com");
+  }
 
-function LandingPage({ onOpenPortal }) {
+  useEffect(() => {
+    const provider = providerRef.current;
+    let mounted = true;
+    let lastChecked = 0;
+
+    const poll = async () => {
+      try {
+        const num = await provider.getBlockNumber();
+        if (num === lastChecked || !mounted) return;
+        lastChecked = num;
+        const block = await provider.getBlock(num, true);
+        if (!block || !mounted) return;
+
+        const match = block.transactions?.some(
+          tx => tx.to?.toLowerCase() === CONTRACT_ADDRESS_V3.toLowerCase()
+             || (tx.from && tx.from.toLowerCase() === CONTRACT_ADDRESS_V3.toLowerCase())
+        );
+
+        if (!match) return;
+
+        setLiveBlocks(prev => {
+          const next = [{
+            num: block.number,
+            hash: block.hash,
+            txs: block.transactions.length,
+            ts: Date.now()
+          }, ...prev.filter(b => b.num !== block.number)];
+          return next.slice(0, 4);
+        });
+      } catch { /* ignore */ }
+    };
+
+    poll();
+    const interval = setInterval(poll, 12000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
-      className="flex min-h-[70vh] items-center justify-center"
+      className="relative flex min-h-[70vh] items-center justify-center overflow-hidden"
     >
-      <div className="text-center max-w-sm">
-        <div className="mx-auto mb-6">
-          <VoteIcon />
+      <div className="relative max-w-2xl px-4">
+        <div className="mb-6">
+          <div className="flex items-baseline justify-center gap-x-6 gap-y-2 flex-wrap">
+            <h1 className="sm:text-6xl text-2xl font-bold tracking-wide text-app-accent-dark whitespace-nowrap">
+              Gandaki University
+            </h1>
+            <h2 className="sm:text-7xl text-4xl font-black tracking-tight text-app-heading whitespace-nowrap">
+              IT Club
+            </h2>
+          </div>
         </div>
+        <p className="text-xl text-app-muted-text font-medium mb-10 text-center leading-relaxed max-w-md mx-auto">
+          A decentralized on-chain voting system for the IT Club election
+        </p>
 
-        <h1 className="text-3xl font-black tracking-tight text-app-heading mb-2">
-          Club Election
-        </h1>
-        <p className="text-sm text-app-muted-text mb-8">Decentralized voting on Sepolia</p>
-
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center justify-center gap-4 mb-10">
           <WalletButton />
-          <button onClick={onOpenPortal} className="btn-secondary">
+          <button onClick={onOpenPortal} className="btn-secondary text-base px-5 py-2.5 gap-2">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
             Student Portal
           </button>
         </div>
 
-        <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-sky-400/20 bg-sky-400/5 px-3 py-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-          <span className="text-sm font-mono text-sky-300">{SEPOLIA_NETWORK}</span>
+        <div className="flex items-center justify-center gap-10 mt-12">
+          <div className="flex items-center gap-3">
+            <svg className="h-7 w-7 text-app-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            <span className="text-xl text-app-muted-text">Onchain</span>
+          </div>
+          <span className="text-app-muted-text/30 text-lg">|</span>
+          <div className="flex items-center gap-3">
+            <svg className="h-7 w-7 text-app-trust" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span className="text-xl text-app-muted-text">Transparent</span>
+          </div>
+          <span className="text-app-muted-text/30 text-lg">|</span>
+          <div className="flex items-center gap-3">
+            <svg className="h-7 w-7 text-app-ballot" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="3" width="16" height="18" rx="2" />
+              <path d="M9 12l2 2 4-4" />
+              <path d="M4 9h16" />
+            </svg>
+            <span className="text-xl text-app-muted-text">Secure</span>
+          </div>
         </div>
+
+        <div className="mt-10 flex items-center justify-center gap-3 flex-wrap">
+          {liveBlocks.length === 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-surface-solid/40 px-4 py-3">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-app-muted-text" />
+              <span className="text-xs text-app-muted-text">Waiting for next block...</span>
+            </div>
+          )}
+          {liveBlocks.map((block, i) => (
+            <div
+              key={block.hash}
+              className={`flex flex-col items-center rounded-xl border px-4 py-3 text-center transition-all duration-500 ${
+                i === 0
+                  ? 'border-app-accent/40 bg-app-accent-soft'
+                  : 'border-app-border bg-app-surface-solid/40'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-xs text-app-heading font-mono font-medium mb-1">
+                {i === 0 && (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-app-trust opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-app-trust" />
+                  </span>
+                )}
+                #{(block.num).toLocaleString()}
+              </div>
+              <div className="text-[10px] text-app-muted-text font-mono mb-1">
+                0x{block.hash.slice(2, 6)}...{block.hash.slice(-4)}
+              </div>
+              <div className="text-xs text-app-muted-text">{block.txs} txns</div>
+            </div>
+          ))}
+        </div>
+
       </div>
     </motion.div>
   );

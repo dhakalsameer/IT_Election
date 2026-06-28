@@ -18,6 +18,8 @@ export default function VerifyVoter() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [revokeLoading, setRevokeLoading] = useState(false);
   const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [yearFilter, setYearFilter] = useState("all");
 
   const isAdmin = Boolean(wallet);
 
@@ -142,19 +144,51 @@ export default function VerifyVoter() {
   };
 
   const filtered = students.filter((s) => {
+    if (yearFilter !== "all") {
+      const syear = parseInt(s.registration_year || s.year || "0");
+      if (syear !== parseInt(yearFilter)) return false;
+    }
     const q = filter.trim().toUpperCase();
     if (!q) return true;
     return (s.student_id || "").toUpperCase().includes(q) || (s.name || "").toUpperCase().includes(q);
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sort === "recent") {
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    }
+    if (sort === "name") {
+      return (a.name || "").localeCompare(b.name || "");
+    }
+    if (sort === "year") {
+      const ay = parseInt((a.registration_year || a.year || "0"));
+      const by = parseInt((b.registration_year || b.year || "0"));
+      return by - ay;
+    }
+    if (sort === "status") {
+      if (a.eligibleToVote !== b.eligibleToVote) return a.eligibleToVote ? -1 : 1;
+      return (a.student_id || "").localeCompare(b.student_id || "");
+    }
+    return (a.student_id || "").localeCompare(b.student_id || "");
   });
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <SectionHeader icon="✓" title="Verify Voters" />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard label="Total Registry" value={students.length} />
         <StatCard label="Selected" value={selected.size} accent="emerald" />
         <StatCard label="Active Whitelisted" value={students.filter((s) => s.eligibleToVote).length} accent="emerald" />
+      </div>
+
+      {/* Year filter */}
+      <div className="flex items-center gap-2">
+        <button onClick={() => setYearFilter("all")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "all" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>All</button>
+        <button onClick={() => setYearFilter("1")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "1" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>1st Year</button>
+        <button onClick={() => setYearFilter("2")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "2" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>2nd Year</button>
+        <button onClick={() => setYearFilter("3")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "3" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>3rd Year</button>
+        <button onClick={() => setYearFilter("4")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${yearFilter === "4" ? "text-app-accent bg-app-accent-soft" : "text-app-muted-text hover:text-app-heading bg-app-muted/20 hover:bg-app-elevated"}`}>4th Year</button>
       </div>
 
       {!isAdmin ? (
@@ -162,19 +196,36 @@ export default function VerifyVoter() {
       ) : (
         <>
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
-            <input
-              type="text"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search student ID or name…"
-              className="input-field flex-1 min-w-0 text-sm"
-            />
+            <div className="relative flex-1">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Search student ID or name…"
+                className="input-field w-full pl-10 pr-4 py-2.5 text-sm"
+              />
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="rounded-lg border border-app bg-app-input px-3 py-2.5 text-sm text-app-muted-text hover:text-app-heading cursor-pointer focus:outline-none"
+            >
+              <option value="recent">By Recent</option>
+              <option value="year">By Year</option>
+              <option value="name">By Name</option>
+              <option value="status">By Status</option>
+              <option value="id">By ID</option>
+            </select>
             <button
               onClick={handleLoadData}
               disabled={loading}
-              className="rounded-xl border border-app bg-app-input px-4 sm:px-5 py-2.5 text-sm font-bold text-app-muted hover:text-app-heading hover:bg-app-elevated transition-all cursor-pointer disabled:opacity-50"
+              className="rounded-xl border border-app bg-app-input px-5 py-2.5 text-sm font-bold text-app-muted-text hover:text-app-heading hover:bg-app-elevated transition-all cursor-pointer disabled:opacity-50"
             >
-              {loading ? "Refreshing…" : "🔄 Refresh Data"}
+              {loading ? "Refreshing…" : "Refresh"}
             </button>
           </div>
 
@@ -182,11 +233,11 @@ export default function VerifyVoter() {
             <button
               onClick={verifySelected}
               disabled={verifyLoading || selected.size === 0}
-              className="rounded-xl bg-emerald-500 text-slate-950 px-4 sm:px-5 py-2.5 text-sm font-black uppercase tracking-wider shadow-neon-glow hover:bg-emerald-400 hover:shadow-neon-intense transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="rounded-xl bg-emerald-500 text-slate-950 px-5 py-3 text-base font-black uppercase tracking-wider shadow-neon-glow hover:bg-emerald-400 hover:shadow-neon-intense transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               {verifyLoading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="h-3.5 w-3.5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin inline-block" />
+                  <span className="h-4 w-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin inline-block" />
                   Whitelisting…
                 </span>
               ) : (
@@ -197,7 +248,7 @@ export default function VerifyVoter() {
             <button
               onClick={() => setSelected(new Set())}
               disabled={selected.size === 0}
-              className="rounded-xl border border-app bg-app-input px-4 py-2.5 text-sm font-bold text-app-muted hover:text-app-heading hover:bg-app-elevated transition-all disabled:opacity-40 cursor-pointer"
+              className="rounded-xl border border-app bg-app-input px-5 py-3 text-base font-bold text-app-muted hover:text-app-heading hover:bg-app-elevated transition-all disabled:opacity-40 cursor-pointer"
             >
               Clear Selection
             </button>
@@ -207,7 +258,7 @@ export default function VerifyVoter() {
             <EmptyState icon="👥" message={loading ? "Loading database..." : "No unverified student links found."} />
           ) : (
             <>
-              <label className="hidden md:flex items-center gap-2 text-sm font-mono font-bold uppercase tracking-wider text-app-muted cursor-pointer select-none w-fit">
+              <label className="hidden md:flex items-center gap-2 text-base font-mono font-bold uppercase tracking-wider text-app-muted cursor-pointer select-none w-fit">
                 <input
                   type="checkbox"
                   checked={filtered.length > 0 && filtered.every((s) => selected.has(s.student_id))}
@@ -228,7 +279,7 @@ export default function VerifyVoter() {
               </label>
               <DataTable
               keyExtractor={(s) => s.student_id}
-              data={filtered}
+              data={sorted}
               columns={[
                 {
                   key: "select",
@@ -280,7 +331,7 @@ export default function VerifyVoter() {
                 {
                   key: "wallet",
                   label: "Wallet",
-                  cellClassName: "font-mono text-xs",
+                  cellClassName: "font-mono text-sm",
                   render: (s) =>
                     s.wallet_address ? (
                       <BlockExplorerLink hash={s.wallet_address} type="address" />
@@ -293,11 +344,11 @@ export default function VerifyVoter() {
                   label: "Status",
                   render: (s) =>
                     s.eligibleToVote ? (
-                      <span className="rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-neon-glow">
+                      <span className="rounded-full px-3 py-1.5 text-sm font-mono font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-neon-glow">
                         Whitelisted
                       </span>
                     ) : (
-                      <span className="rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider bg-app-input border border-app text-app-muted">
+                      <span className="rounded-full px-3 py-1.5 text-sm font-mono font-bold uppercase tracking-wider bg-app-input border border-app text-app-muted">
                         Awaiting
                       </span>
                     ),
@@ -312,7 +363,7 @@ export default function VerifyVoter() {
                         <button
                           onClick={() => verifyStudent(s.student_id)}
                           disabled={verifyLoading}
-                          className="rounded-xl px-3 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all cursor-pointer"
+                          className="rounded-xl px-4 py-2 text-sm font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all cursor-pointer"
                         >
                           Verify
                         </button>
@@ -321,7 +372,7 @@ export default function VerifyVoter() {
                         <button
                           onClick={() => revokeStudent(s.student_id)}
                           disabled={revokeLoading}
-                          className="rounded-xl px-3 py-1.5 text-xs font-black uppercase tracking-wider text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer"
+                          className="rounded-xl px-4 py-2 text-sm font-black uppercase tracking-wider text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer"
                         >
                           Revoke
                         </button>

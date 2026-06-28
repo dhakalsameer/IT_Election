@@ -131,23 +131,25 @@ function LoginView({ onRegister }) {
       <h2 className="text-lg font-semibold text-app-heading">Sign in</h2>
 
       <div>
+        <label className="text-xs font-medium text-app-muted-text mb-1.5 block">Student ID</label>
         <input
           type="text"
           value={id}
           onChange={(e) => setId(e.target.value)}
-          className="input-field"
-          placeholder="Student ID"
+          className="input-field px-3.5 py-2.5"
+          placeholder="e.g. GUSD430"
           required
         />
       </div>
 
       <div>
+        <label className="text-xs font-medium text-app-muted-text mb-1.5 block">Password</label>
         <input
           type="password"
           value={pw}
           onChange={(e) => setPw(e.target.value)}
-          className="input-field"
-          placeholder="Password"
+          className="input-field px-3.5 py-2.5"
+          placeholder="Enter your password"
           required
         />
       </div>
@@ -265,9 +267,9 @@ function RegisterView({ onLogin }) {
   };
 
   const steps = [
-    { num: 1, label: "Code", icon: "🔑" },
-    { num: 2, label: "Details", icon: "✏️" },
-    { num: 3, label: "Wallet", icon: "🦊" },
+    { num: 1, label: "Code" },
+    { num: 2, label: "Details" },
+    { num: 3, label: "Wallet" },
   ];
 
   return (
@@ -293,7 +295,7 @@ function RegisterView({ onLogin }) {
                         : "bg-app-muted/50 text-app-muted-text border-2 border-app-border/50"
                     }`}
                   >
-                    {step > s.num ? "✓" : s.icon}
+                    {step > s.num ? "✓" : s.num}
                   </span>
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider ${
@@ -316,28 +318,22 @@ function RegisterView({ onLogin }) {
             <p className="text-xs font-medium text-app-heading">Enter your registration credentials</p>
           </div>
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text mb-1 block">Student ID</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-app-muted-text font-mono">📋</span>
-              <input
-                className="input-field text-sm pl-8"
-                placeholder="e.g. GUSD430"
-                value={id}
-                onChange={(e) => setId(e.target.value.toUpperCase())}
-              />
-            </div>
+            <label className="text-xs font-medium text-app-muted-text mb-1.5 block">Student ID</label>
+            <input
+              className="input-field px-3.5 py-2.5"
+              placeholder="e.g. GUSD430"
+              value={id}
+              onChange={(e) => setId(e.target.value.toUpperCase())}
+            />
           </div>
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text mb-1 block">Registration Code</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-app-muted-text">🔑</span>
-              <input
-                className="input-field text-sm font-mono pl-8 tracking-[0.15em]"
-                placeholder="XXXX-XXXX-XXXX"
-                value={code}
-                onChange={(e) => setCode(formatCode(e.target.value))}
-              />
-            </div>
+            <label className="text-xs font-medium text-app-muted-text mb-1.5 block">Registration Code</label>
+            <input
+              className="input-field font-mono tracking-[0.15em] px-3.5 py-2.5"
+              placeholder="XXXX-XXXX-XXXX"
+              value={code}
+              onChange={(e) => setCode(formatCode(e.target.value))}
+            />
           </div>
           {error && (
             <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2">
@@ -368,39 +364,33 @@ function RegisterView({ onLogin }) {
             <p className="text-xs font-medium text-app-heading">Set up your profile and password</p>
           </div>
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text mb-1 block">Full Name</label>
+            <label className="text-xs font-medium text-app-muted-text mb-1.5 block">Full Name</label>
             <input
-              className="input-field text-sm"
+              className="input-field px-3.5 py-2.5"
               placeholder="e.g. Ram Sharma"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text mb-1 block">Password</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-app-muted-text">🔒</span>
-              <input
-                className="input-field text-sm pl-8"
-                type="password"
-                placeholder="Min 6 characters"
-                value={pw}
-                onChange={(e) => setPw(e.target.value)}
-              />
-            </div>
+            <label className="text-xs font-medium text-app-muted-text mb-1.5 block">Password</label>
+            <input
+              className="input-field px-3.5 py-2.5"
+              type="password"
+              placeholder="Min 6 characters"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+            />
           </div>
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text mb-1 block">Confirm Password</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-app-muted-text">🔒</span>
-              <input
-                className="input-field text-sm pl-8"
-                type="password"
-                placeholder="Re-enter password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
+            <label className="text-xs font-medium text-app-muted-text mb-1.5 block">Confirm Password</label>
+            <input
+              className="input-field px-3.5 py-2.5"
+              type="password"
+              placeholder="Re-enter password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
           </div>
           {error && (
             <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2">

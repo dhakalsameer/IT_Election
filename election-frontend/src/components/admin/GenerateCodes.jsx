@@ -18,6 +18,7 @@ export default function GenerateCodes() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("");
   const [showUsed, setShowUsed] = useState(false);
+  const [sort, setSort] = useState("recent");
   const [generatedCount, setGeneratedCount] = useState(0);
   const [generatedMeta, setGeneratedMeta] = useState(null);
   const textareaRef = useRef(null);
@@ -116,89 +117,122 @@ export default function GenerateCodes() {
     );
   });
 
+  const sortedCodes = [...filteredCodes].sort((a, b) => {
+    if (sort === "recent") {
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    }
+    if (sort === "status") {
+      return (a.used === b.used) ? 0 : a.used ? 1 : -1;
+    }
+    return (a.student_id || "").localeCompare(b.student_id || "");
+  });
+
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-6">
       <SectionHeader icon="🔑" title="Registration Codes" />
 
-      <p className="text-sm text-app-body leading-relaxed">
-        Generate unique one-time codes linked to voter student IDs. Voters must provide their matched student ID and key to link their Ethereum wallets.
-      </p>
+      {/* Generate card */}
+      <div className="rounded-xl border border-app bg-app-surface overflow-hidden">
+        <div className="px-6 py-5 border-b border-app bg-app-muted/20">
+          <h3 className="text-base font-bold text-app-heading">Generate New Codes</h3>
+          <p className="text-sm text-app-muted-text mt-1">
+            Paste comma-separated student records below. Each student gets a unique one-time registration code.
+          </p>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-app-heading mb-2">
+              Student Records
+              <span className="text-xs font-mono text-app-muted-text font-normal">(ID, Name, Year, Gender — one per line)</span>
+            </label>
+            <textarea
+              ref={textareaRef}
+              value={studentIdsText}
+              onChange={(e) => setStudentIdsText(e.target.value)}
+              rows={4}
+              placeholder="GU001,John Doe,1st,male"
+              disabled={loading}
+              className="input-field w-full px-4 py-3 text-sm font-mono disabled:opacity-50"
+            />
+            {error && <p className="mt-2 text-sm font-medium text-rose-400">{error}</p>}
+          </div>
 
-      <div className="space-y-3">
-        <label className="block">
-          <span className="text-sm font-mono font-bold uppercase tracking-wider text-emerald-400">Students Database Upload</span>
-          <span className="ml-1 text-xs font-mono text-app-muted">(CSV: ID,Name,Year,Gender — one per line)</span>
-        </label>
-        <textarea
-          ref={textareaRef}
-          value={studentIdsText}
-          onChange={(e) => setStudentIdsText(e.target.value)}
-          rows={5}
-          placeholder="GU001,John Doe,1st,male&#10;GU002,Jane Smith,2nd,female"
-          disabled={loading}
-          className="input-field w-full px-4 py-3 text-sm font-mono shadow-sm disabled:opacity-50 min-h-[120px]"
-        />
-        {error && <p className="text-sm font-mono font-semibold text-rose-400">{error}</p>}
-
-        <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-2.5">
-          <button
-            onClick={handleGenerate}
-            disabled={loading || !wallet}
-            className="btn-primary disabled:opacity-40"
-          >
-            {loading ? (
-              <>
-                <span className="h-4 w-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin inline-block" />
-                Generating…
-              </>
-            ) : (
-              <>🔑 Generate Codes</>
-            )}
-          </button>
-
-          {generatedCodes.length > 0 && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => downloadCSV(generatedCodes)}
-              className="rounded-xl bg-teal-500 text-slate-950 px-5 py-2.5 text-sm font-black uppercase tracking-wider shadow-neon-glow hover:bg-teal-400 transition-all cursor-pointer"
+              onClick={handleGenerate}
+              disabled={loading || !wallet}
+              className="btn-primary disabled:opacity-40"
             >
-              📥 Download CSV ({generatedCount})
+              {loading ? (
+                <>
+                  <span className="h-4 w-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin inline-block" />
+                  Generating…
+                </>
+              ) : (
+                <>Generate Codes</>
+              )}
             </button>
+
+            {generatedCodes.length > 0 && (
+              <button
+                onClick={() => downloadCSV(generatedCodes)}
+                className="rounded-xl border border-app bg-app-input px-5 py-2.5 text-sm font-bold text-app-heading hover:bg-app-elevated transition-all cursor-pointer"
+              >
+                📥 Download CSV ({generatedCount})
+              </button>
+            )}
+          </div>
+
+          {generatedMeta && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 space-y-1">
+              {generatedMeta.generated.length > 0 && (
+                <p className="text-sm font-medium text-emerald-400">+ {generatedMeta.generated.length} new code(s) created</p>
+              )}
+              {generatedMeta.reused.length > 0 && (
+                <p className="text-sm font-medium text-sky-400">↻ {generatedMeta.reused.length} code(s) reused from existing</p>
+              )}
+              {generatedMeta.skipped.length > 0 && generatedMeta.skipped.map((s, i) => (
+                <p key={i} className="text-sm text-amber-400">
+                  ⏭ {s.student_id} — {s.reason}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       </div>
 
-      {generatedMeta && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 space-y-1">
-          {generatedMeta.generated.length > 0 && (
-            <p className="text-sm font-semibold text-emerald-400">✅ Generated {generatedMeta.generated.length} new code(s)</p>
-          )}
-          {generatedMeta.reused.length > 0 && (
-            <p className="text-sm font-semibold text-sky-400">♻️ {generatedMeta.reused.length} code(s) already existed — reused</p>
-          )}
-          {generatedMeta.skipped.length > 0 && generatedMeta.skipped.map((s, i) => (
-            <p key={i} className="text-sm text-amber-400">
-              ⏭️ {s.student_id} ({s.name || "no name"}) — {s.reason}
-            </p>
-          ))}
-          <p className="text-xs text-app-muted pt-1">View details in the audit registry below.</p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3">
         <StatCard label="Total Codes" value={codes.length} />
         <StatCard label="Unused" value={codes.filter((c) => !c.used).length} accent="emerald" />
         <StatCard label="Used" value={codes.filter((c) => c.used).length} accent="muted" />
       </div>
 
-      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
-        <input
-          type="text"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter student ID or code…"
-          className="input-field flex-1 min-w-0 text-sm"
-        />
-        <label className="flex items-center gap-2 text-sm font-mono font-bold uppercase tracking-wider text-app-muted cursor-pointer select-none shrink-0">
+      {/* Filter + actions */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-app-muted-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search by student ID or code…"
+            className="input-field w-full pl-10 pr-4 py-2.5 text-sm"
+          />
+        </div>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="rounded-lg border border-app bg-app-input px-3 py-2.5 text-sm text-app-muted-text hover:text-app-heading cursor-pointer focus:outline-none"
+        >
+          <option value="recent">By Recent</option>
+          <option value="status">By Status</option>
+          <option value="id">By ID</option>
+        </select>
+        <label className="flex items-center gap-2 text-sm font-medium text-app-muted-text cursor-pointer select-none shrink-0">
           <input
             type="checkbox"
             checked={showUsed}
@@ -207,29 +241,28 @@ export default function GenerateCodes() {
           />
           Show used
         </label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => downloadCSV(codes)}
-            className="flex-1 sm:flex-none rounded-xl border border-app bg-app-input px-3 sm:px-4 py-2.5 text-sm font-bold text-app-muted hover:text-app-heading hover:bg-app-elevated transition-all cursor-pointer"
-          >
-            Backup CSV
-          </button>
-          <button
-            onClick={loadCodes}
-            disabled={fetching}
-            className="flex-1 sm:flex-none rounded-xl border border-app bg-app-input px-3 sm:px-4 py-2.5 text-sm font-bold text-app-muted hover:text-app-heading hover:bg-app-elevated transition-all disabled:opacity-50 cursor-pointer"
-          >
-            {fetching ? "Syncing…" : "🔄 Sync"}
-          </button>
-        </div>
+        <button
+          onClick={() => downloadCSV(codes)}
+          className="rounded-lg border border-app bg-app-input px-4 py-2.5 text-sm font-medium text-app-muted-text hover:text-app-heading hover:bg-app-elevated transition-all cursor-pointer"
+        >
+          Backup CSV
+        </button>
+        <button
+          onClick={loadCodes}
+          disabled={fetching}
+          className="rounded-lg border border-app bg-app-input px-4 py-2.5 text-sm font-medium text-app-muted-text hover:text-app-heading hover:bg-app-elevated transition-all disabled:opacity-50 cursor-pointer"
+        >
+          {fetching ? "Syncing…" : "Refresh"}
+        </button>
       </div>
 
-      {filteredCodes.length === 0 ? (
-        <EmptyState icon="🔑" message="No active keys match your query filters." />
+      {/* Table */}
+      {sortedCodes.length === 0 ? (
+        <EmptyState icon="🔑" message="No registration codes match your filters." />
       ) : (
         <DataTable
           keyExtractor={(c) => c.id}
-          data={filteredCodes}
+          data={sortedCodes}
           rowClassName={(c) => (c.used ? "opacity-60" : "")}
           columns={[
             {
@@ -249,11 +282,13 @@ export default function GenerateCodes() {
               label: "Status",
               render: (c) =>
                 c.used ? (
-                  <span className="rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider bg-app-elevated border border-app text-app-muted">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider bg-app-elevated border border-app text-app-muted">
+                    <span className="h-1.5 w-1.5 rounded-full bg-app-muted" />
                     Claimed
                   </span>
                 ) : (
-                  <span className="rounded-full px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-neon-glow">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     Available
                   </span>
                 ),
@@ -261,13 +296,13 @@ export default function GenerateCodes() {
             {
               key: "created_at",
               label: "Issued",
-              cellClassName: "font-mono",
+              cellClassName: "font-mono text-sm",
               render: (c) => (c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"),
             },
             {
               key: "used_at",
               label: "Claimed At",
-              cellClassName: "font-mono",
+              cellClassName: "font-mono text-sm",
               render: (c) => (c.used_at ? new Date(c.used_at).toLocaleDateString() : "—"),
             },
           ]}

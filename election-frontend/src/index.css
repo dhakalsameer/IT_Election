@@ -24,6 +24,10 @@
     --app-body: #cbd5e1;
     --app-muted-text: #64748b;
     --app-accent: #38bdf8;
+    --app-accent-secondary: #ec1c24;
+    --app-accent-secondary-soft: rgba(236, 28, 36, 0.12);
+    --app-accent-dark: #3b82f6;
+    --app-accent-dark-soft: rgba(59, 130, 246, 0.12);
     --app-trust: #22c55e;
     --app-ballot: #facc15;
     --app-accent-soft: rgba(56, 189, 248, 0.1);
@@ -47,6 +51,10 @@
     --app-body: #25364a;
     --app-muted-text: #5b6b80;
     --app-accent: #075985;
+    --app-accent-secondary: #dc2626;
+    --app-accent-secondary-soft: rgba(220, 38, 38, 0.1);
+    --app-accent-dark: #1e40af;
+    --app-accent-dark-soft: rgba(30, 64, 175, 0.1);
     --app-trust: #047857;
     --app-ballot: #92400e;
     --app-accent-soft: rgba(3, 105, 161, 0.08);
@@ -88,6 +96,10 @@
   .text-app-muted { color: var(--app-muted-text); }
   .text-app-muted-text { color: var(--app-muted-text); }
   .text-app-accent { color: var(--app-accent); }
+  .text-app-accent-secondary { color: var(--app-accent-secondary); }
+  .text-app-accent-dark { color: var(--app-accent-dark); }
+  .bg-app-accent-dark-soft { background: var(--app-accent-dark-soft); }
+  .bg-app-accent-secondary-soft { background: var(--app-accent-secondary-soft); }
   .text-app-trust { color: var(--app-trust); }
 
   .page-container {
@@ -145,7 +157,6 @@
     border: 1px solid var(--app-border);
     background: var(--app-input);
     color: var(--app-heading);
-    padding: 0.625rem 0.875rem;
     transition: border-color 0.15s ease;
   }
 
