@@ -30,6 +30,10 @@
     --app-accent-dark-soft: rgba(59, 130, 246, 0.12);
     --app-trust: #22c55e;
     --app-ballot: #facc15;
+    --app-trust-border: rgba(34, 197, 94, 0.25);
+    --app-accent-border: rgba(56, 189, 248, 0.25);
+    --app-ballot-border: rgba(250, 204, 21, 0.2);
+    --app-ballot-soft: rgba(250, 204, 21, 0.1);
     --app-accent-soft: rgba(56, 189, 248, 0.1);
     --app-trust-soft: rgba(34, 197, 94, 0.1);
     --app-shadow-card: 0 18px 48px rgba(2, 6, 23, 0.34);
@@ -57,6 +61,10 @@
     --app-accent-dark-soft: rgba(30, 64, 175, 0.1);
     --app-trust: #047857;
     --app-ballot: #92400e;
+    --app-trust-border: rgba(4, 120, 87, 0.15);
+    --app-accent-border: rgba(3, 105, 161, 0.15);
+    --app-ballot-border: rgba(146, 64, 14, 0.15);
+    --app-ballot-soft: rgba(146, 64, 14, 0.08);
     --app-accent-soft: rgba(3, 105, 161, 0.08);
     --app-trust-soft: rgba(4, 120, 87, 0.08);
     --app-shadow-card: 0 14px 34px rgba(15, 23, 42, 0.09);
@@ -89,7 +97,7 @@
   .bg-app-elevated { background: var(--app-elevated); }
   .bg-app-input { background: var(--app-input); }
   .bg-app-accent-soft { background: var(--app-accent-soft); }
-  .bg-app-trust-soft { background: rgba(34, 197, 94, 0.1); }
+  .bg-app-trust-soft { background: var(--app-trust-soft); }
   .bg-app-elevated { background: var(--app-elevated); }
   .text-app-heading { color: var(--app-heading); }
   .text-app-body { color: var(--app-body); }
@@ -173,5 +181,5 @@
     border: 1px solid var(--app-border-soft);
   }
 
-  .text-glow-emerald { text-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+  .text-glow-emerald { text-shadow: 0 0 8px color-mix(in srgb, var(--app-trust) 50%, transparent); }
 }

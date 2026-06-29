@@ -7,8 +7,13 @@ let loaded = false;
 
 async function loadCache() {
   if (loaded) return;
+
+  // Auto-migration: ensure from_address column exists
+  try {
+    await db.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS from_address TEXT`);
+  } catch { /* table may not exist yet */ }
   const result = await db.query(
-    `SELECT id, event_name, tx_hash, block_number, log_index, args, timestamp
+    `SELECT id, event_name, tx_hash, block_number, log_index, from_address, args, timestamp
      FROM events ORDER BY timestamp DESC, id DESC LIMIT $1`,
     [MAX_EVENTS]
   );
@@ -17,6 +22,7 @@ async function loadCache() {
     txHash: r.tx_hash,
     blockNumber: r.block_number,
     logIndex: r.log_index,
+    fromAddress: r.from_address,
     args: r.args || {},
     timestamp: Number(r.timestamp),
   }));
@@ -28,9 +34,9 @@ export async function addEvent(event) {
   const args = event.args || {};
 
   await db.query(
-    `INSERT INTO events (event_name, tx_hash, block_number, log_index, args, timestamp)
-     VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
-    [event.eventName, event.txHash || null, event.blockNumber || null, event.logIndex || null, JSON.stringify(args), timestamp]
+    `INSERT INTO events (event_name, tx_hash, block_number, log_index, from_address, args, timestamp)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
+    [event.eventName, event.txHash || null, event.blockNumber || null, event.logIndex || null, event.fromAddress || null, JSON.stringify(args), timestamp]
   );
 
   cache.unshift({
@@ -38,6 +44,7 @@ export async function addEvent(event) {
     txHash: event.txHash || null,
     blockNumber: event.blockNumber || null,
     logIndex: event.logIndex || null,
+    fromAddress: event.fromAddress || null,
     args,
     timestamp,
   });

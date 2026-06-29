@@ -7,9 +7,13 @@ CREATE TABLE IF NOT EXISTS events (
   tx_hash      TEXT,
   block_number INTEGER,
   log_index    INTEGER,
+  from_address TEXT,
   args         JSONB NOT NULL DEFAULT '{}',
   timestamp    INTEGER NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC);
+
+-- Migration: add from_address column for existing databases
+ALTER TABLE events ADD COLUMN IF NOT EXISTS from_address TEXT;

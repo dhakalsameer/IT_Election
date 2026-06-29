@@ -4,6 +4,8 @@ import { db } from "../db.js";
 import { addEvent, seedHistoricalEvents } from "../services/eventStore.js";
 
 const POLL_MS = 10000;
+const processedKeys = new Set();
+let lastProcessedBlock = 0;
 
 export function startBlockchainSync(io) {
   console.log("🔄 Blockchain sync engine running (Poll-based)...");
@@ -21,6 +23,216 @@ export function startBlockchainSync(io) {
       console.error("Failed to persist event:", err.message);
     }
     if (io) io.emit("blockchainEvent", event);
+  }
+
+  async function fetchAndEmitOnChainEvents() {
+    const provider = electionContractV3.runner?.provider;
+    if (!provider) return;
+
+    try {
+      const currentBlock = await provider.getBlockNumber();
+      const fromBlock = lastProcessedBlock > 0 ? lastProcessedBlock : 0;
+      if (currentBlock <= fromBlock) return;
+
+      // CandidateRegistered — includes candidate wallet address
+      const candLogs = await electionContractV3.queryFilter(
+        electionContractV3.filters.CandidateRegistered(),
+        fromBlock,
+        currentBlock
+      );
+      for (const log of candLogs) {
+        const key = `${log.transactionHash}-${log.index}`;
+        if (processedKeys.has(key)) continue;
+        processedKeys.add(key);
+
+        await emitEvent({
+          eventName: "CandidateRegistered",
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
+          fromAddress: log.args.candidate,
+          args: {
+            id: Number(log.args.id),
+            name: log.args.name,
+            position: Number(log.args.position),
+            candidate: log.args.candidate,
+            imageCID: log.args.imageCID || "",
+          },
+        });
+
+        // Upsert candidate record from chain data
+        const cand = await electionContractV3.getCandidate(Number(log.args.id));
+        if (cand.exists) {
+          const id = Number(cand.id);
+          const position = positionToString(cand.position);
+          await db.query(
+            `INSERT INTO candidates (blockchain_id, name, position, vote_count, year, gender, image_cid, status, wallet_address)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'approved', $8)
+             ON CONFLICT (blockchain_id) WHERE blockchain_id IS NOT NULL
+             DO UPDATE SET name = $2, position = $3, vote_count = $4, wallet_address = $8`,
+            [
+              id, cand.name, position, Number(cand.voteCount),
+              String(cand.year), cand.isFemale ? "female" : "male",
+              cand.imageCID || null, log.args.candidate,
+            ]
+          );
+          prevVotes[id] = Number(cand.voteCount);
+        }
+      }
+
+      // VoteCast — includes voter wallet address
+      const voteLogs = await electionContractV3.queryFilter(
+        electionContractV3.filters.VoteCast(),
+        fromBlock,
+        currentBlock
+      );
+      for (const log of voteLogs) {
+        const key = `${log.transactionHash}-${log.index}`;
+        if (processedKeys.has(key)) continue;
+        processedKeys.add(key);
+
+        await emitEvent({
+          eventName: "VoteCast",
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
+          fromAddress: log.args.voter,
+          args: {
+            voter: log.args.voter,
+            candidateId: Number(log.args.candidateId),
+          },
+        });
+
+        const cid = Number(log.args.candidateId);
+        try {
+          await db.query(
+            `UPDATE candidates SET vote_count = vote_count + 1 WHERE blockchain_id = $1`,
+            [cid]
+          );
+        } catch { /* might not exist yet */ }
+        prevVotes[cid] = (prevVotes[cid] || 0) + 1;
+      }
+
+      // PhaseChanged — no address arg, get from tx receipt
+      const phaseLogs = await electionContractV3.queryFilter(
+        electionContractV3.filters.PhaseChanged(),
+        fromBlock,
+        currentBlock
+      );
+      for (const log of phaseLogs) {
+        const key = `${log.transactionHash}-${log.index}`;
+        if (processedKeys.has(key)) continue;
+        processedKeys.add(key);
+
+        let fromAddr = null;
+        try {
+          const receipt = await provider.getTransactionReceipt(log.transactionHash);
+          fromAddr = receipt?.from || null;
+        } catch { /* ignore */ }
+
+        await emitEvent({
+          eventName: "PhaseChanged",
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
+          fromAddress: fromAddr,
+          args: { newPhase: Number(log.args.newPhase) },
+        });
+      }
+
+      // NewElectionStarted — no address arg
+      const electionLogs = await electionContractV3.queryFilter(
+        electionContractV3.filters.NewElectionStarted(),
+        fromBlock,
+        currentBlock
+      );
+      for (const log of electionLogs) {
+        const key = `${log.transactionHash}-${log.index}`;
+        if (processedKeys.has(key)) continue;
+        processedKeys.add(key);
+
+        let fromAddr = null;
+        try {
+          const receipt = await provider.getTransactionReceipt(log.transactionHash);
+          fromAddr = receipt?.from || null;
+        } catch { /* ignore */ }
+
+        const eid = Number(log.args.electionId);
+        const prevElectionNum = eid > 1 ? eid - 1 : eid;
+        snapshotInProgress = true;
+        await snapshotResults(prevElectionNum);
+        await db.query("DELETE FROM candidates");
+        await db.query("DELETE FROM events");
+        snapshotInProgress = false;
+
+        await emitEvent({
+          eventName: "NewElectionStarted",
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
+          fromAddress: fromAddr,
+          args: { electionId: eid },
+        });
+      }
+
+      // MerkleRootUpdated — no address arg
+      const merkleLogs = await electionContractV3.queryFilter(
+        electionContractV3.filters.MerkleRootUpdated(),
+        fromBlock,
+        currentBlock
+      );
+      for (const log of merkleLogs) {
+        const key = `${log.transactionHash}-${log.index}`;
+        if (processedKeys.has(key)) continue;
+        processedKeys.add(key);
+
+        let fromAddr = null;
+        try {
+          const receipt = await provider.getTransactionReceipt(log.transactionHash);
+          fromAddr = receipt?.from || null;
+        } catch { /* ignore */ }
+
+        await emitEvent({
+          eventName: "MerkleRootUpdated",
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
+          fromAddress: fromAddr,
+          args: { newRoot: log.args.newRoot },
+        });
+      }
+
+      // IdentityMerkleRootUpdated
+      const identityLogs = await electionContractV3.queryFilter(
+        electionContractV3.filters.IdentityMerkleRootUpdated(),
+        fromBlock,
+        currentBlock
+      );
+      for (const log of identityLogs) {
+        const key = `${log.transactionHash}-${log.index}`;
+        if (processedKeys.has(key)) continue;
+        processedKeys.add(key);
+
+        let fromAddr = null;
+        try {
+          const receipt = await provider.getTransactionReceipt(log.transactionHash);
+          fromAddr = receipt?.from || null;
+        } catch { /* ignore */ }
+
+        await emitEvent({
+          eventName: "IdentityMerkleRootUpdated",
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
+          fromAddress: fromAddr,
+          args: { newRoot: log.args.newRoot },
+        });
+      }
+
+      lastProcessedBlock = currentBlock + 1;
+    } catch (err) {
+      console.error("queryFilter failed, falling back to polling detection:", err.message);
+    }
   }
 
   async function broadcastResults() {
@@ -88,7 +300,6 @@ export function startBlockchainSync(io) {
       const phase = Number(await electionContractV3.getPhase());
       const eid = Number(await electionContractV3.currentElectionId());
 
-      // Detect new election: either by phase transition (3→0) or by election ID increment
       const newElectionDetected =
         (prevPhase !== null && prevPhase === 3 && phase === 0) ||
         (prevElectionId > 0 && eid > prevElectionId);
@@ -97,26 +308,21 @@ export function startBlockchainSync(io) {
         const prevElectionNum = eid - 1;
         console.log(`🏁 New election detected (ID: ${eid}), snapshotting election #${prevElectionNum}`);
         snapshotInProgress = true;
-        // Snapshot BEFORE clearing — captures old candidates
         await snapshotResults(prevElectionNum);
-        // Clear old candidate data and events for the new cycle
         await db.query("DELETE FROM candidates");
         await db.query("DELETE FROM events");
         prevVotes = {};
         prevCandidateCount = 0;
         snapshotInProgress = false;
-        await emitEvent({
-          eventName: "NewElectionStarted",
-          txHash: null,
-          blockNumber: null,
-          args: { electionId: eid },
-        });
+        // queryFilter will emit the real event with fromAddress
       }
-      if (prevPhase !== phase) {
+      if (prevPhase !== phase && lastProcessedBlock === 0) {
+        // Only emit from polling fallback if queryFilter hasn't started yet
         await emitEvent({
           eventName: "PhaseChanged",
           txHash: null,
           blockNumber: null,
+          fromAddress: null,
           args: { newPhase: phase },
         });
       }
@@ -130,6 +336,11 @@ export function startBlockchainSync(io) {
   async function syncAll() {
     try {
       if (snapshotInProgress) return;
+
+      // 1. Fetch real on-chain events (includes wallet addresses)
+      await fetchAndEmitOnChainEvents();
+
+      // 2. Poll-based candidate/vote detection as fallback
       const provider = electionContractV3.runner?.provider;
       if (!provider) return;
 
@@ -145,28 +356,13 @@ export function startBlockchainSync(io) {
         const isNew = !(id in prevVotes);
         const prev = prevVotes[id] || 0;
 
-        // Upsert candidate record (insert if new, update if exists)
         await upsertCandidate(cand);
 
-        // Emit event for new candidate registration
         if (isNew) {
           console.log(`📝 New candidate detected: ${cand.name} (${positionToString(cand.position)})`);
           prevVotes[id] = onChainVotes;
-          await emitEvent({
-            eventName: "CandidateRegistered",
-            txHash: null,
-            blockNumber: null,
-            args: {
-              id: id,
-              name: cand.name,
-              position: Number(cand.position),
-              candidate: null,
-              imageCID: cand.imageCID || "",
-            },
-          });
         }
 
-        // Handle vote changes
         if (onChainVotes !== prev) {
           anyChange = true;
           const diff = onChainVotes - prev;
@@ -179,15 +375,6 @@ export function startBlockchainSync(io) {
             `UPDATE candidates SET vote_count = $1 WHERE blockchain_id = $2`,
             [onChainVotes, id]
           );
-
-          for (let v = 0; v < diff; v++) {
-            await emitEvent({
-              eventName: "VoteCast",
-              txHash: null,
-              blockNumber: null,
-              args: { candidateId: id },
-            });
-          }
 
           prevVotes[id] = onChainVotes;
         }
@@ -210,14 +397,17 @@ export function startBlockchainSync(io) {
     electionContractV3.target &&
     electionContractV3.target !== "0x0000000000000000000000000000000000000000"
   ) {
-    // Initial sync
     (async () => {
       try {
         prevPhase = Number(await electionContractV3.getPhase());
         prevElectionId = Number(await electionContractV3.currentElectionId());
         prevCandidateCount = Number(await electionContractV3.candidateCount());
 
-        // New election cycle — clear old data from DB
+        const provider = electionContractV3.runner?.provider;
+        if (provider) {
+          lastProcessedBlock = await provider.getBlockNumber();
+        }
+
         if (prevPhase === 0 && prevCandidateCount === 0) {
           await db.query("DELETE FROM candidates");
           await db.query("DELETE FROM events");

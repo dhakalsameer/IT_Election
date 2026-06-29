@@ -39,7 +39,7 @@ function Badge({ variant, children }) {
     rose:    "bg-rose-500/10   text-rose-400   border-rose-500/20",
   };
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${colors[variant] || colors.emerald}`}>
+    <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-lg border ${colors[variant] || colors.emerald}`}>
       {children}
     </span>
   );
@@ -67,11 +67,12 @@ function valueDisplay(key, value) {
 
 function EventCard({ event }) {
   const [copied, setCopied] = useState(false);
+  const [fromCopied, setFromCopied] = useState(false);
 
-  const handleCopy = (text) => {
+  const handleCopy = (text, setter) => {
     copyToClipboard(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    setter(true);
+    setTimeout(() => setter(false), 1200);
   };
 
   const meta = EVENT_META[event.eventName] || { label: event.eventName, color: "emerald", icon: "📄" };
@@ -79,15 +80,29 @@ function EventCard({ event }) {
 
   return (
     <div className="rounded-xl border border-app bg-app-surface overflow-hidden transition-all hover:border-app-accent/30">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-app/50 bg-app-muted/20">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">{meta.icon}</span>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-app/50 bg-app-muted/20">
+        <div className="flex items-center gap-3">
+          <span className="text-base">{meta.icon}</span>
           <Badge variant={meta.color}>{meta.label}</Badge>
+          {event.fromAddress && (
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-app-muted-text uppercase tracking-wider font-bold">From</span>
+              <button
+                onClick={() => handleCopy(event.fromAddress, setFromCopied)}
+                className="text-xs font-mono text-app-muted-text hover:text-app-accent transition-colors cursor-pointer"
+                title="Copy wallet address"
+              >
+                {truncate(event.fromAddress)}
+              </button>
+              {fromCopied && <span className="text-[10px] text-emerald-400 font-medium">Copied</span>}
+            </div>
+          )}
           {event.txHash && (
             <div className="flex items-center gap-1">
+              <span className="text-[10px] text-app-muted-text uppercase tracking-wider font-bold">Tx</span>
               <button
-                onClick={() => handleCopy(event.txHash)}
-                className="text-[11px] font-mono text-app-muted-text hover:text-app-accent transition-colors cursor-pointer"
+                onClick={() => handleCopy(event.txHash, setCopied)}
+                className="text-xs font-mono text-app-muted-text hover:text-app-accent transition-colors cursor-pointer"
                 title="Copy tx hash"
               >
                 {truncate(event.txHash)}
@@ -101,11 +116,11 @@ function EventCard({ event }) {
               >
                 ↗
               </a>
-              {copied && <span className="text-[9px] text-emerald-400">Copied</span>}
+              {copied && <span className="text-[10px] text-emerald-400 font-medium">Copied</span>}
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 text-[11px] font-mono text-app-muted-text">
+        <div className="flex items-center gap-3 text-xs font-mono text-app-muted-text">
           {event.blockNumber && (
             <a
               href={`${SEPOLIA_EXPLORER}/block/${event.blockNumber}`}
@@ -123,13 +138,13 @@ function EventCard({ event }) {
           )}
         </div>
       </div>
-      <div className="px-4 py-3">
+      <div className="px-5 py-4">
         {event.eventName === "CandidateRegistered" && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             <span className="text-app-muted-text">Candidate ID</span>
             <span className="text-app-heading font-mono font-bold">{args.id?.toString()}</span>
-            <span className="text-app-muted-text">Address</span>
-            <span className="text-app-heading font-mono">{args.candidate?.slice(0, 10)}...{args.candidate?.slice(-6)}</span>
+            <span className="text-app-muted-text">Wallet</span>
+            <span className="text-app-heading font-mono text-xs">{args.candidate || "Unknown"}</span>
             <span className="text-app-muted-text">Name</span>
             <span className="text-app-heading font-medium">{args.name}</span>
             <span className="text-app-muted-text">Position</span>
@@ -137,39 +152,39 @@ function EventCard({ event }) {
           </div>
         )}
         {event.eventName === "VoteCast" && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             <span className="text-app-muted-text">Voter</span>
-            <span className="text-app-heading font-mono">{args.voter?.slice(0, 10)}...{args.voter?.slice(-6)}</span>
+            <span className="text-app-heading font-mono text-xs">{args.voter || "Unknown"}</span>
             <span className="text-app-muted-text">Candidate ID</span>
             <span className="text-app-heading font-mono font-bold">#{args.candidateId?.toString()}</span>
           </div>
         )}
         {event.eventName === "PhaseChanged" && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             <span className="text-app-muted-text">New Phase</span>
             <span className="text-app-heading font-bold">{PHASE_NAMES[Number(args.newPhase)] || `Unknown (${args.newPhase})`}</span>
           </div>
         )}
         {event.eventName === "MerkleRootUpdated" && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             <span className="text-app-muted-text">New Root</span>
-            <span className="text-app-heading font-mono text-[10px] break-all">{args.newRoot}</span>
+            <span className="text-app-heading font-mono text-xs break-all">{args.newRoot}</span>
           </div>
         )}
         {event.eventName === "IdentityMerkleRootUpdated" && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             <span className="text-app-muted-text">New Identity Root</span>
-            <span className="text-app-heading font-mono text-[10px] break-all">{args.newRoot}</span>
+            <span className="text-app-heading font-mono text-xs break-all">{args.newRoot}</span>
           </div>
         )}
         {event.eventName === "NewElectionStarted" && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             <span className="text-app-muted-text">Election ID</span>
             <span className="text-app-heading font-mono font-bold">#{args.electionId?.toString()}</span>
           </div>
         )}
         {!["CandidateRegistered", "VoteCast", "PhaseChanged", "MerkleRootUpdated", "IdentityMerkleRootUpdated", "NewElectionStarted"].includes(event.eventName) && (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
             {Object.entries(args).filter(([k]) => isNaN(Number(k))).map(([k, v]) => (
               <div key={k} className="contents">
                 <span className="text-app-muted-text capitalize">{k}</span>
@@ -276,16 +291,16 @@ export default function LiveBlockchainDashboard() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3 mb-4">
-          <span className="relative flex h-2.5 w-2.5">
+          <span className="relative flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
           </span>
-          <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest">Blockchain Activity Feed</h3>
-          <span className="text-[10px] font-mono text-emerald-500/80 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 uppercase">Sepolia</span>
+          <h3 className="text-xl font-black text-emerald-400 uppercase tracking-widest">Blockchain Activity Feed</h3>
+          <span className="text-xs font-mono text-emerald-500/80 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20 uppercase">Sepolia</span>
         </div>
-        <div className="rounded-xl border border-app bg-app-surface p-8 text-center space-y-3">
-          <div className="animate-spin mx-auto h-6 w-6 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full" />
-          <p className="text-xs text-app-muted-text">Loading blockchain events from server…</p>
+        <div className="rounded-xl border border-app bg-app-surface p-10 text-center space-y-3">
+          <div className="animate-spin mx-auto h-8 w-8 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full" />
+          <p className="text-sm text-app-muted-text">Loading blockchain events from server…</p>
         </div>
       </div>
     );
@@ -295,44 +310,44 @@ export default function LiveBlockchainDashboard() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3 mb-4">
-          <span className="relative flex h-2.5 w-2.5">
+          <span className="relative flex h-3 w-3">
             <span className="absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500" />
           </span>
-          <h3 className="text-sm font-bold text-rose-400 uppercase tracking-widest">Blockchain Activity Feed</h3>
+          <h3 className="text-xl font-black text-rose-400 uppercase tracking-widest">Blockchain Activity Feed</h3>
         </div>
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-6 text-center">
-          <p className="text-sm text-rose-400">{error}</p>
-          <p className="text-xs text-app-muted-text mt-2">Make sure the backend server is running.</p>
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-8 text-center">
+          <p className="text-base text-rose-400 font-semibold">{error}</p>
+          <p className="text-sm text-app-muted-text mt-2">Make sure the backend server is running.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="relative flex h-2.5 w-2.5">
+          <span className="relative flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
           </span>
-          <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest">Blockchain Activity Feed</h3>
-          <span className="text-[10px] font-mono text-emerald-500/80 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 uppercase">Sepolia</span>
+          <h3 className="text-xl font-black text-emerald-400 uppercase tracking-widest">Blockchain Activity Feed</h3>
+          <span className="text-xs font-mono text-emerald-500/80 bg-emerald-500/10 px-2.5 py-1 rounded border border-emerald-500/20 uppercase">Sepolia</span>
         </div>
         <a
           href={`${SEPOLIA_EXPLORER}/address/${CONTRACT_ADDRESS_V3}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[11px] text-app-muted-text hover:text-app-accent transition-colors underline underline-offset-2"
+          className="text-sm text-app-muted-text hover:text-app-accent transition-colors underline underline-offset-2"
         >
           View Contract ↗
         </a>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
         <StatCard label="Total" value={stats.total} color="emerald" />
         <StatCard label="Votes" value={stats.votes} color="emerald" />
         <StatCard label="Candidates" value={stats.candidates} color="blue" />
@@ -343,13 +358,13 @@ export default function LiveBlockchainDashboard() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         <FilterTab active={filter === "All"} onClick={() => setFilter("All")}>
-          All <span className="text-[10px] opacity-60">({tabCounts.All})</span>
+          All <span className="text-xs opacity-60">({tabCounts.All})</span>
         </FilterTab>
         {EVENT_NAMES.map(name => (
           <FilterTab key={name} active={filter === name} onClick={() => setFilter(name)}>
-            {EVENT_META[name].icon} {EVENT_META[name].label} <span className="text-[10px] opacity-60">({tabCounts[name] || 0})</span>
+            {EVENT_META[name].icon} {EVENT_META[name].label} <span className="text-xs opacity-60">({tabCounts[name] || 0})</span>
           </FilterTab>
         ))}
       </div>
@@ -360,11 +375,11 @@ export default function LiveBlockchainDashboard() {
         className="space-y-2 max-h-[520px] overflow-y-auto pr-1 scrollbar-thin"
       >
         {filtered.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-app bg-app-muted/20 p-8 text-center">
-            <p className="text-sm text-app-muted-text">
+          <div className="rounded-xl border border-dashed border-app bg-app-muted/20 p-10 text-center">
+            <p className="text-base text-app-muted-text">
               {filter === "All" ? "No on-chain events detected yet." : `No ${EVENT_META[filter]?.label || filter} events yet.`}
             </p>
-            <p className="text-xs text-app-muted-text mt-1">
+            <p className="text-sm text-app-muted-text mt-1">
               Events will appear here in real-time as the sync engine detects them.
             </p>
           </div>
@@ -373,7 +388,7 @@ export default function LiveBlockchainDashboard() {
         )}
       </div>
 
-      <p className="text-[10px] text-app-muted-text leading-relaxed italic">
+      <p className="text-sm text-app-muted-text leading-relaxed italic">
         Powered by the backend sync engine + Socket.IO — blockchain events are indexed server-side.
       </p>
     </div>
@@ -390,11 +405,11 @@ function StatCard({ label, value, color }) {
     rose:    "bg-rose-400",
   };
   return (
-    <div className="rounded-xl border border-app bg-app-surface px-3 py-2.5 text-center">
-      <p className="text-lg font-black text-app-heading">{value}</p>
-      <div className="flex items-center justify-center gap-1 mt-0.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotColors[color] || "bg-emerald-400"}`} />
-        <p className="text-[10px] font-bold uppercase tracking-wider text-app-muted-text">{label}</p>
+    <div className="rounded-xl border border-app bg-app-surface px-4 py-3.5 text-center">
+      <p className="text-2xl font-black text-app-heading">{value}</p>
+      <div className="flex items-center justify-center gap-1.5 mt-1">
+        <span className={`h-2 w-2 rounded-full ${dotColors[color] || "bg-emerald-400"}`} />
+        <p className="text-xs font-bold uppercase tracking-wider text-app-muted-text">{label}</p>
       </div>
     </div>
   );
@@ -404,7 +419,7 @@ function FilterTab({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
+      className={`text-sm font-bold px-3.5 py-2 rounded-lg border transition-all cursor-pointer ${
         active
           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
           : "bg-app-surface text-app-muted-text border-app hover:border-app-accent/30 hover:text-app-heading"

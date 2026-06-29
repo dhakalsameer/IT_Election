@@ -117,7 +117,7 @@ export default function AnalyticsDashboard() {
       const s = size === "sm" ? "h-14 w-14" : "h-16 w-16";
       const initials = (name || "?").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
       return (
-        <div className={`${s} rounded-full overflow-hidden border-2 border-app/30 shrink-0 bg-gradient-to-br from-emerald-500/20 to-sky-500/20`}>
+        <div className={`${s} rounded-full overflow-hidden border-2 border-app/30 shrink-0 bg-gradient-to-br from-[var(--app-trust-soft)] to-[var(--app-accent-soft)]`}>
           {src ? (
             <img src={src} alt="" className="h-full w-full object-cover"
               onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
@@ -129,11 +129,6 @@ export default function AnalyticsDashboard() {
         </div>
       );
     }
-
-    const posColors = {
-      President: { bg: "bg-emerald-500/8", dot: "bg-emerald-400", text: "text-emerald-400", border: "border-emerald-500/20" },
-      Secretary: { bg: "bg-sky-500/8", dot: "bg-sky-400", text: "text-sky-400", border: "border-sky-500/20" },
-    };
 
     return (
       <div className="rounded-xl border border-app bg-app-surface overflow-hidden">
@@ -148,10 +143,10 @@ export default function AnalyticsDashboard() {
         <div className="p-5 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {winners.president && (
-              <div className="flex items-center gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-4">
+              <div className="flex items-center gap-4 rounded-xl border border-[var(--app-trust-border)] bg-[var(--app-trust-soft)] px-5 py-4">
                 <Avatar src={getImageUrl(winners.president.photo || winners.president.image_cid)} name={winners.president.name} gender={winners.president.gender} size="lg" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-1">President</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-trust)] mb-1">President</p>
                   <p className="text-lg font-bold text-app-heading break-words">{winners.president.name}</p>
                   <div className="flex items-center gap-2 mt-1.5">
                     {winners.president.year && <span className="text-xs text-app-muted-text whitespace-nowrap">{fmtYear(winners.president.year)}</span>}
@@ -163,16 +158,16 @@ export default function AnalyticsDashboard() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-2xl font-black text-emerald-400">{winners.president.votes}</p>
+                  <p className="text-2xl font-black text-[var(--app-trust)]">{winners.president.votes}</p>
                   <p className="text-[10px] text-app-muted-text">votes</p>
                 </div>
               </div>
             )}
             {winners.secretary && (
-              <div className="flex items-center gap-4 rounded-xl border border-sky-500/20 bg-sky-500/5 px-5 py-4">
+              <div className="flex items-center gap-4 rounded-xl border border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] px-5 py-4">
                 <Avatar src={getImageUrl(winners.secretary.photo || winners.secretary.image_cid)} name={winners.secretary.name} gender={winners.secretary.gender} size="lg" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold uppercase tracking-widest text-sky-400 mb-1">Secretary</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-accent)] mb-1">Secretary</p>
                   <p className="text-lg font-bold text-app-heading break-words">{winners.secretary.name}</p>
                   <div className="flex items-center gap-2 mt-1.5">
                     {winners.secretary.year && <span className="text-xs text-app-muted-text whitespace-nowrap">{fmtYear(winners.secretary.year)}</span>}
@@ -184,7 +179,7 @@ export default function AnalyticsDashboard() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-2xl font-black text-sky-400">{winners.secretary.votes}</p>
+                  <p className="text-2xl font-black text-[var(--app-accent)]">{winners.secretary.votes}</p>
                   <p className="text-[10px] text-app-muted-text">votes</p>
                 </div>
               </div>
@@ -193,11 +188,11 @@ export default function AnalyticsDashboard() {
 
           {winners.gmWinners.length > 0 && (
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-3">General Members</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-ballot)] mb-3">General Members</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {winners.gmWinners.map((gm, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-xl border border-amber-500/15 bg-amber-500/5 px-4 py-3.5">
-                    <span className="text-xs font-mono font-bold text-amber-400 w-5 shrink-0">#{i + 1}</span>
+                  <div key={i} className="flex items-center gap-3 rounded-xl border border-[var(--app-ballot-border)] bg-[var(--app-ballot-soft)] px-4 py-3.5">
+                    <span className="text-xs font-mono font-bold text-[var(--app-ballot)] w-5 shrink-0">#{i + 1}</span>
                     <Avatar src={getImageUrl(gm.photo || gm.image_cid)} name={gm.name} gender={gm.gender} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-app-heading break-words leading-snug">{gm.name}</p>
@@ -211,7 +206,7 @@ export default function AnalyticsDashboard() {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-base font-bold text-amber-400">{gm.votes}</p>
+                      <p className="text-base font-bold text-[var(--app-ballot)]">{gm.votes}</p>
                     </div>
                   </div>
                 ))}
@@ -257,7 +252,7 @@ export default function AnalyticsDashboard() {
               onClick={() => setSelectedElection(tab.key)}
               className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                 selectedElection === tab.key
-                  ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                  ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] border-[var(--app-accent-border)]"
                   : "bg-app-surface text-app-muted-text border-app hover:border-app-accent/30 hover:text-app-heading"
               }`}
             >
@@ -375,7 +370,7 @@ export default function AnalyticsDashboard() {
                     <div className="flex items-center gap-3">
                        <div className="h-1.5 w-16 bg-app-muted border border-app rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500" 
+                            className="h-full bg-gradient-to-r from-[var(--app-trust)] to-[var(--app-accent)]" 
                             style={{ width: `${(Number(c.vote_count) / totalVotes * 100) || 0}%` }}
                           ></div>
                        </div>

@@ -3,7 +3,6 @@ import { API_URL } from "../config";
 import { socket } from "../socket";
 
 const POSITIONS = ["President", "Secretary", "General Member"];
-const POSITION_COLORS = { President: "emerald", Secretary: "sky", "General Member": "amber" };
 
 function getImageUrl(cid) {
   if (!cid) return null;
@@ -24,7 +23,7 @@ function Avatar({ src, name, size }) {
   const fs = size === "sm" ? "text-xs" : "text-sm";
   const initials = (name || "?").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
   return (
-    <div className={`${s} rounded-full overflow-hidden border-2 border-app/30 shrink-0 bg-gradient-to-br from-emerald-500/20 to-sky-500/20`}>
+    <div className={`${s} rounded-full overflow-hidden border-2 border-app/30 shrink-0 bg-gradient-to-br from-[var(--app-trust-soft)] to-[var(--app-accent-soft)]`}>
       {src ? (
         <img src={src} alt="" className="h-full w-full object-cover"
           onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
@@ -56,16 +55,16 @@ function WinnersDeclaration({ candidates, isLive, electionNumber }) {
   const title = isLive ? "Current Leaders" : `Election ${electionNumber} Winners`;
 
   return (
-    <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-sky-500/5 to-amber-500/5 p-6 mb-6">
+    <div className="rounded-xl border border-[var(--app-trust-border)] bg-gradient-to-br from-[var(--app-trust-soft)] via-[var(--app-accent-soft)] to-[var(--app-ballot-soft)] p-6 mb-6">
       <h3 className="text-base font-bold uppercase tracking-wider text-app-heading mb-5 flex items-center gap-2">
         <span className="text-lg">🏆</span> {title}
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
         {winners.president && (
-          <div className="flex items-center gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] px-5 py-4">
+          <div className="flex items-center gap-4 rounded-xl border border-[var(--app-trust-border)] bg-[var(--app-trust-soft)] px-5 py-4">
             <Avatar src={getImageUrl(winners.president.image_cid || winners.president.photo)} name={winners.president.name} />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-1">President</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-trust)] mb-1">President</p>
               <p className="text-lg font-bold text-app-heading break-words">{winners.president.name}</p>
               <div className="flex items-center gap-2 mt-1.5">
                 {winners.president.year && <span className="text-xs text-app-muted-text whitespace-nowrap">{fmtYear(winners.president.year)}</span>}
@@ -77,16 +76,16 @@ function WinnersDeclaration({ candidates, isLive, electionNumber }) {
               </div>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-2xl font-black text-emerald-400">{Number(winners.president.vote_count)}</p>
+              <p className="text-2xl font-black text-[var(--app-trust)]">{Number(winners.president.vote_count)}</p>
               <p className="text-[10px] text-app-muted-text">votes</p>
             </div>
           </div>
         )}
         {winners.secretary && (
-          <div className="flex items-center gap-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] px-5 py-4">
+          <div className="flex items-center gap-4 rounded-xl border border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] px-5 py-4">
             <Avatar src={getImageUrl(winners.secretary.image_cid || winners.secretary.photo)} name={winners.secretary.name} />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-sky-400 mb-1">Secretary</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-accent)] mb-1">Secretary</p>
               <p className="text-lg font-bold text-app-heading break-words">{winners.secretary.name}</p>
               <div className="flex items-center gap-2 mt-1.5">
                 {winners.secretary.year && <span className="text-xs text-app-muted-text whitespace-nowrap">{fmtYear(winners.secretary.year)}</span>}
@@ -98,7 +97,7 @@ function WinnersDeclaration({ candidates, isLive, electionNumber }) {
               </div>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-2xl font-black text-sky-400">{Number(winners.secretary.vote_count)}</p>
+              <p className="text-2xl font-black text-[var(--app-accent)]">{Number(winners.secretary.vote_count)}</p>
               <p className="text-[10px] text-app-muted-text">votes</p>
             </div>
           </div>
@@ -106,10 +105,10 @@ function WinnersDeclaration({ candidates, isLive, electionNumber }) {
       </div>
       {winners.gmWinners.length > 0 && (
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-3">General Members</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-[var(--app-ballot)] mb-3">General Members</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {winners.gmWinners.map((gm, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 rounded-xl border border-amber-500/15 bg-amber-500/[0.03] px-4 py-4 text-center">
+              <div key={i} className="flex flex-col items-center gap-2 rounded-xl border border-[var(--app-ballot-border)] bg-[var(--app-ballot-soft)] px-4 py-4 text-center">
                 <Avatar src={getImageUrl(gm.image_cid || gm.photo)} name={gm.name} size="sm" />
                 <p className="text-sm font-bold text-app-heading leading-snug break-words w-full">{gm.name}</p>
                 <div className="flex items-center justify-center gap-1.5 flex-wrap">
@@ -120,7 +119,7 @@ function WinnersDeclaration({ candidates, isLive, electionNumber }) {
                     }`}>{gm.gender}</span>
                   )}
                 </div>
-                <span className="text-sm font-mono font-bold text-amber-400">{Number(gm.vote_count)} vote{Number(gm.vote_count) !== 1 ? "s" : ""}</span>
+                <span className="text-sm font-mono font-bold text-[var(--app-ballot)]">{Number(gm.vote_count)} vote{Number(gm.vote_count) !== 1 ? "s" : ""}</span>
               </div>
             ))}
           </div>
@@ -167,7 +166,7 @@ function CandidateCard({ candidate, maxVotes }) {
           </div>
           <div className="mt-1 h-1.5 rounded-full bg-app-border/30 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-1000 ease-out"
+              className="h-full rounded-full bg-gradient-to-r from-[var(--app-trust)] to-[var(--app-accent)] transition-all duration-1000 ease-out"
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -276,7 +275,7 @@ function HistoryResults({ election }) {
     <div className="space-y-4">
       <WinnersDeclaration candidates={candidates} isLive={false} electionNumber={election.election_number} />
       <div className="flex items-center gap-2">
-        <span className="text-xs text-app-muted-text">
+        <span className="text-sm font-medium text-app-body">
           {new Date(election.snapshot_at).toLocaleDateString(undefined, {
             year: "numeric", month: "short", day: "numeric",
           })}
@@ -333,8 +332,8 @@ export default function Results() {
       <div className="px-4 py-3 border-b border-app">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--app-accent)] opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--app-accent)]" />
           </span>
           <h2 className="text-base font-semibold text-app-heading">Results</h2>
         </div>
@@ -347,7 +346,7 @@ export default function Results() {
                 onClick={() => setSelectedElection(tab.key)}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                   selectedElection === tab.key
-                    ? "bg-sky-500/10 text-sky-400 border-sky-500/20"
+                    ? "bg-[var(--app-accent-soft)] text-[var(--app-accent)] border-[var(--app-accent-border)]"
                     : "bg-app-surface text-app-muted-text border-app hover:border-app-accent/30 hover:text-app-heading"
                 }`}
               >
