@@ -46,7 +46,10 @@ export default function AdminDashboard() {
           </div>
           {balance && (
             <div className="flex items-center gap-2 rounded-lg border border-app-border bg-app-muted/30 px-5 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              <svg className="h-5 w-5 shrink-0 text-app-heading" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L4 12.5l8 3.5 8-3.5L12 2z" opacity="0.6" />
+                <path d="M12 16.5l-8-3.5L12 22l8-9-8 3.5z" />
+              </svg>
               <span className="text-lg font-mono font-semibold text-app-heading">{Number(balance).toFixed(4)} ETH</span>
             </div>
           )}

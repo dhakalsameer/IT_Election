@@ -1,6 +1,10 @@
 import { MerkleTree } from "merkletreejs";
-import keccak256 from "keccak256";
 import { ethers } from "ethers";
+import { Buffer } from "buffer";
+
+function keccak256(input) {
+  return Buffer.from(ethers.keccak256(input).slice(2), "hex");
+}
 
 /**
  * Generates a Merkle Proof for a wallet given a list of all eligible wallets.

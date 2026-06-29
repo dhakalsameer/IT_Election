@@ -1,22 +1,23 @@
-import { useContext, useState, useEffect, useRef } from "react";
+import { useContext, useState, useEffect, useRef, lazy, Suspense } from "react";
 import { JsonRpcProvider } from "ethers";
 import { AnimatePresence, motion } from "framer-motion";
 import { useBalance } from "./hooks/useBalance";
 import { AuthContext } from "./context/AuthContextValue";
 import { ToastProvider } from "./components/ui/Toast";
-import { CONTRACT_ADDRESS_V3, SEPOLIA_NETWORK, SEPOLIA_CHAIN_ID, SEPOLIA_EXPLORER } from "./config";
+import { CONTRACT_ADDRESS_V3 } from "./config";
 import AppHeader from "./components/ui/AppHeader";
-import AdminDashboard from "./components/admin/AdminDashboard";
-import VotingPanelV3 from "./components/VotingPanelV3";
-import Results from "./components/Results";
-import LiveBlockchainDashboard from "./components/LiveBlockchainDashboard";
 import WalletButton from "./components/WalletButton";
-import ArchitectureOverview from "./components/ArchitectureOverview";
-import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import VoterStatusCard from "./components/VoterStatusCard";
 import MainRegistrationBanner from "./components/MainRegistrationBanner";
-import StudentPortal from "./components/StudentPortal";
 import ScrollToTop from "./components/ui/ScrollToTop";
+
+const VotingPanelV3 = lazy(() => import("./components/VotingPanelV3"));
+const Results = lazy(() => import("./components/Results"));
+const LiveBlockchainDashboard = lazy(() => import("./components/LiveBlockchainDashboard"));
+const ArchitectureOverview = lazy(() => import("./components/ArchitectureOverview"));
+const AnalyticsDashboard = lazy(() => import("./components/AnalyticsDashboard"));
+const AdminDashboard = lazy(() => import("./components/admin/AdminDashboard"));
+const StudentPortal = lazy(() => import("./components/StudentPortal"));
 
 
 const TAB_ORDER = ["vote", "results", "activity", "docs"];
@@ -27,6 +28,14 @@ const pageVariants = {
 };
 
 const pageTransition = { duration: 0.2, ease: "easeOut" };
+
+function LoadingSection() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-app-accent border-t-transparent" />
+    </div>
+  );
+}
 
 function AnimatedPage({ children }) {
   return (
@@ -223,32 +232,42 @@ function App() {
                   <div className="space-y-4">
                     <VoterStatusCard voterStatus={voterStatus} balance={balance} />
                     <MainRegistrationBanner />
-                    <VotingPanelV3 />
+                    <Suspense fallback={<LoadingSection />}>
+                      <VotingPanelV3 />
+                    </Suspense>
                   </div>
                 </AnimatedPage>
               )}
 
               {(currentTab === "vote" || currentTab === "admin") && isAdmin && (
                 <AnimatedPage key="admin">
-                  <AdminDashboard />
+                  <Suspense fallback={<LoadingSection />}>
+                    <AdminDashboard />
+                  </Suspense>
                 </AnimatedPage>
               )}
 
               {currentTab === "results" && (
                 <AnimatedPage key="results">
-                  {isAdmin ? <AnalyticsDashboard /> : <Results />}
+                  <Suspense fallback={<LoadingSection />}>
+                    {isAdmin ? <AnalyticsDashboard /> : <Results />}
+                  </Suspense>
                 </AnimatedPage>
               )}
 
               {currentTab === "activity" && (
                 <AnimatedPage key="activity">
-                  <LiveBlockchainDashboard />
+                  <Suspense fallback={<LoadingSection />}>
+                    <LiveBlockchainDashboard />
+                  </Suspense>
                 </AnimatedPage>
               )}
 
               {currentTab === "docs" && (
-                <AnimatedPage key="docs" className="max-w-3xl mx-auto">
-                  <ArchitectureOverview />
+                <AnimatedPage key="docs">
+                  <Suspense fallback={<LoadingSection />}>
+                    <ArchitectureOverview />
+                  </Suspense>
                 </AnimatedPage>
               )}
             </AnimatePresence>
@@ -256,7 +275,9 @@ function App() {
         </main>
       </div>
 
-      <StudentPortal open={portalOpen} onClose={() => setPortalOpen(false)} />
+      <Suspense fallback={null}>
+        <StudentPortal open={portalOpen} onClose={() => setPortalOpen(false)} />
+      </Suspense>
       <ScrollToTop />
     </ToastProvider>
   );

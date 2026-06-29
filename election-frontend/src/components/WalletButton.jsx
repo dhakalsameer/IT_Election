@@ -11,8 +11,12 @@ export default function WalletButton() {
   if (wallet) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-base font-mono text-app-muted-text">
-          Ξ {balance ? Number(balance).toFixed(4) : "--"}
+        <span className="flex items-center gap-1.5 text-lg font-mono text-app-muted-text">
+          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L4 12.5l8 3.5 8-3.5L12 2z" opacity="0.6" />
+            <path d="M12 16.5l-8-3.5L12 22l8-9-8 3.5z" />
+          </svg>
+          <span>{balance ? `${Number(balance).toFixed(4)} ETH` : "--"}</span>
         </span>
         <span className="text-base font-mono text-app-accent bg-app-accent-soft px-4 py-2 rounded-lg border border-app-border">
           {wallet.slice(0, 6)}...{wallet.slice(-4)}
