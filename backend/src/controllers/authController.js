@@ -318,5 +318,6 @@ function shape(row) {
     walletVerified: Boolean(row.wallet_verified),
     eligibleToVote: Boolean(row.eligible_to_vote),
     registered: Boolean(row.registered),
+    created_at: row.created_at,
   };
 }

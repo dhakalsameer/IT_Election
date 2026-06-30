@@ -761,7 +761,7 @@ function PortalInner({ onClose }) {
       <div className="bg-app-surface-solid w-full sm:max-w-md rounded-t-xl sm:rounded-xl border border-app shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 h-14 border-b border-app">
           <span className="text-sm font-semibold text-app-heading">Portal</span>
-          <button onClick={onClose} className="h-8 w-8 flex items-center justify-center text-app-muted-text hover:text-app-heading cursor-pointer text-sm rounded-lg hover:bg-app-muted/30 transition-colors">
+          <button onClick={onClose} className="h-10 w-10 flex items-center justify-center text-app-heading hover:text-app-heading cursor-pointer text-lg rounded-lg hover:bg-app-muted/30 transition-colors">
             ✕
           </button>
         </div>
